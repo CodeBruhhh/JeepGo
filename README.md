@@ -1,3 +1,3 @@
 # JeepGo
 
-Ride hailing Jeepney App
+Online Jeepney Ride-Hailing and Tracking App

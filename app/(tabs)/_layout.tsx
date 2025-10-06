@@ -1,35 +1,60 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import BottomNavigationBar from "@/components/BottomNavigationBar";
+import { Tabs } from "expo-router";
+import React from "react";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
+const _layout = () => {
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+        screenOptions={{
+            tabBarShowLabel: false,
+            tabBarStyle: { display: 'none' },
         }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
+        tabBar={(props) => <BottomNavigationBar {...props} />}
+    >
+        <Tabs.Screen
+            name="home"
+            options={{
+                title: 'Home',
+                headerShown: false
+            }}
+        />
+        <Tabs.Screen
+            name = "history"
+            options = {{
+                title: 'History',
+                headerShown: false
+                }}
+        />
+        <Tabs.Screen
+            name = "routes"
+            options = {{
+                title: 'Routes',
+                headerShown: false
+                }}
+        />
+        <Tabs.Screen
+            name = "ride"
+            options = {{
+                title: 'Ride',
+                headerShown: false
+                }}
+        />
+        <Tabs.Screen
+            name = "fares"
+            options = {{
+                title: 'Fares',
+                headerShown: false
+                }}
+        />
+        <Tabs.Screen
+            name = "account"
+            options = {{
+                title: 'Account',
+                headerShown: false
+                }}
+        />
     </Tabs>
-  );
+  )
 }
+
+export default _layout

@@ -2,16 +2,16 @@ import { icons } from '@/constants/icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import React from 'react';
 import {
-    Dimensions,
-    Image,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Image,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import {
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
@@ -60,6 +60,7 @@ const BottomNavigationBar: React.FC<BottomTabBarProps> = ({
     }}
     >
     {state.routes.map((route, index) => {
+        //dont include home and ride in the main navigation
         if (route.name === 'home' || route.name === 'index' || route.name === 'ride') return null;
 
         const { options } = descriptors[route.key];
@@ -81,8 +82,8 @@ const BottomNavigationBar: React.FC<BottomTabBarProps> = ({
             {/* Square background around icon */}
             <View
             style={{
-                width: 50,
-                height: 50,
+                width: focused ?  55 : 50,
+                height: focused ?  55 : 50,
                 backgroundColor: focused ? '#ffffff' : '#C3B1E1',
                 borderRadius: 8,
                 justifyContent: 'center',
@@ -94,8 +95,8 @@ const BottomNavigationBar: React.FC<BottomTabBarProps> = ({
                 source={iconMap[route.name as keyof typeof iconMap]}
                 style={{
                 tintColor: focused ? '#8D5C8A' : '#000000',
-                width: 25,
-                height: 25,
+                width: focused ?  30 : 25,
+                height: focused ?  30 : 25
                 }}
             />
             </View>

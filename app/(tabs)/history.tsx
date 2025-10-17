@@ -3,8 +3,8 @@ import { Text, View } from 'react-native'
 
 const history = () => {
   return (
-    <View className="flex-1 justify-center items-center">
-      <Text className="text-5xl text-primary font-bold">History</Text>
+    <View className="flex-1  items-center bg-secondary">
+      <Text className="text-5xl text-primary top-64 font-bold">History</Text>
     </View>
   )
 }

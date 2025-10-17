@@ -13,7 +13,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#D0C9EA",
         "foregroundImage": "./assets/images/JeepGo_Logo.png"
       },
       "edgeToEdgeEnabled": true,
@@ -32,9 +32,9 @@
           "image": "./assets/images/JeepGo_Logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#D0C9EA",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#524F81"
           }
         }
       ]

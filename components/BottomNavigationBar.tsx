@@ -16,7 +16,8 @@ import {
 
 const { width } = Dimensions.get('window');
 const TAB_COUNT = 4;
-const TAB_WIDTH = (width - 0) / TAB_COUNT;
+const margin = 0;
+const TAB_WIDTH = (width - margin) / TAB_COUNT;
 
 const BottomNavigationBar: React.FC<BottomTabBarProps> = ({
   state,

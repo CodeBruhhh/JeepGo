@@ -18,7 +18,7 @@ const _layout = () => {
             tabBar={(props) => <BottomNavigationBar {...props} />}
         >
             <Tabs.Screen
-                name="home"
+                name="index"
                 options={{
                     title: 'Home',
                     headerShown: false

@@ -2,16 +2,16 @@ import { icons } from '@/constants/icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import React from 'react';
 import {
-  Dimensions,
-  Image,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Image,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
 } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
@@ -19,10 +19,15 @@ const TAB_COUNT = 4;
 const margin = 0;
 const TAB_WIDTH = (width - margin) / TAB_COUNT;
 
-const BottomNavigationBar: React.FC<BottomTabBarProps> = ({
+interface BottomNavigationBarProps extends BottomTabBarProps {
+  showRideButton?: boolean;
+}
+
+const BottomNavigationBar: React.FC<BottomNavigationBarProps> = ({
   state,
   descriptors,
   navigation,
+  showRideButton = true,
 }) => {
   const translateX = useSharedValue(state.index * TAB_WIDTH);
 
@@ -117,39 +122,41 @@ const BottomNavigationBar: React.FC<BottomTabBarProps> = ({
     })}
 
 
-        <TouchableOpacity
-            onPress={() => navigation.navigate('ride')}
-            activeOpacity={0.8}
-            style={{
-            position: 'absolute',
-            top: '-50%',
-            left: '50%', // halfway horizontally
-            transform: [{ translateX: -35 }],
-            width: 70,
-            height: 70,
-            borderRadius: 35,
-            backgroundColor: '#C57BFF',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 10,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 6,
-            elevation: 6,
-            borderWidth: 1,
-            borderColor: '#0f0d23',
-            }}
-        >
-            <Image
-              source={icons.ride}
+        {showRideButton && (
+          <TouchableOpacity
+              onPress={() => navigation.navigate('ride')}
+              activeOpacity={0.8}
               style={{
-                tintColor: '#000000',
-                width: 60,
-                height: 60
+              position: 'absolute',
+              top: '-50%',
+              left: '50%', // halfway horizontally
+              transform: [{ translateX: -35 }],
+              width: 70,
+              height: 70,
+              borderRadius: 35,
+              backgroundColor: '#C57BFF',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 10,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.2,
+              shadowRadius: 6,
+              elevation: 6,
+              borderWidth: 1,
+              borderColor: '#0f0d23',
               }}
-            />
-        </TouchableOpacity>
+          >
+              <Image
+                source={icons.ride}
+                style={{
+                  tintColor: '#000000',
+                  width: 60,
+                  height: 60
+                }}
+              />
+          </TouchableOpacity>
+        )}
 
 
     </View>

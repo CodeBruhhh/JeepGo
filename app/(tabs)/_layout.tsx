@@ -1,22 +1,22 @@
 import BottomNavigationBar from "@/components/BottomNavigationBar";
 import Header from "@/components/Header";
+import { RideButtonProvider, useRideButton } from "@/contexts/RideButtonContext";
 import { Tabs } from "expo-router";
 import React from "react";
 import { View } from "react-native";
 
-const _layout = () => {
+const TabsContent = () => {
+  const { showRideButton } = useRideButton();
+  
   return (
-    <View className="flex-1">
-        <Header />
- 
-        <Tabs
-            initialRouteName="index"
-            screenOptions={{
-                tabBarShowLabel: false,
-                tabBarStyle: { display: 'none' },
-            }}
-            tabBar={(props) => <BottomNavigationBar {...props} />}
-        >
+    <Tabs
+        initialRouteName="index"
+        screenOptions={{
+            tabBarShowLabel: false,
+            tabBarStyle: { display: 'none' },
+        }}
+        tabBar={(props) => <BottomNavigationBar {...props as any} showRideButton={showRideButton} />}
+    >
             <Tabs.Screen
                 name="index"
                 options={{
@@ -60,8 +60,18 @@ const _layout = () => {
                     }}
             />
         </Tabs>
-    </View>
-  )
-}
+  );
+};
+
+const _layout = () => {
+  return (
+    <RideButtonProvider>
+      <View className="flex-1">
+        <Header />
+        <TabsContent />
+      </View>
+    </RideButtonProvider>
+  );
+};
 
 export default _layout

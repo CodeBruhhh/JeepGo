@@ -1,7 +1,10 @@
+import { citUToEmallRoute } from '@/assets/routes/citu-to-emall';
+import { route01CPrivateToColon } from '@/assets/routes/route-01c-private-to-colon';
 import { useRideButton } from '@/contexts/RideButtonContext';
 import React, { useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, PanResponder, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BOTTOM_SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.7;
@@ -25,6 +28,40 @@ const routes = () => {
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [showRouteModal, setShowRouteModal] = useState(false);
   const [visibleRoutes, setVisibleRoutes] = useState<Set<number>>(new Set());
+
+  // Extract coordinates from GeoJSON
+  const citUToEmallWaypoints = citUToEmallRoute.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  // Extract start and end points for CIT-U to Emall
+  const citUStart = {
+    latitude: citUToEmallRoute.features[1].geometry.coordinates[1] as number,
+    longitude: citUToEmallRoute.features[1].geometry.coordinates[0] as number
+  };
+  
+  const emallEnd = {
+    latitude: citUToEmallRoute.features[2].geometry.coordinates[1] as number,
+    longitude: citUToEmallRoute.features[2].geometry.coordinates[0] as number
+  };
+
+  // Extract coordinates for 01C Private to Colon route
+  const route01CWaypoints = route01CPrivateToColon.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  // Extract start and end points for 01C route
+  const uscStart = {
+    latitude: route01CPrivateToColon.features[1].geometry.coordinates[1] as number,
+    longitude: route01CPrivateToColon.features[1].geometry.coordinates[0] as number
+  };
+  
+  const colonEnd = {
+    latitude: route01CPrivateToColon.features[3].geometry.coordinates[1] as number,
+    longitude: route01CPrivateToColon.features[3].geometry.coordinates[0] as number
+  };
   
   // Define routes with their waypoints
   const routesList = [
@@ -33,11 +70,9 @@ const routes = () => {
       code: '01C', 
       description: 'Private to Colon',
       color: '#FF6B6B',
-      waypoints: [
-        { latitude: 10.2900, longitude: 123.8800 },
-        { latitude: 10.2950, longitude: 123.8850 },
-        { latitude: 10.2976, longitude: 123.9015 }, // End point
-      ]
+      waypoints: route01CWaypoints,
+      startPoint: uscStart,
+      endPoint: colonEnd
     },
     { 
       id: 2, 
@@ -88,11 +123,9 @@ const routes = () => {
       code: '69B', 
       description: 'CIT-U to Emall',
       color: '#FF8B94',
-      waypoints: [
-        { latitude: 10.2950, longitude: 123.8750 },
-        { latitude: 10.2945, longitude: 123.8780 },
-        { latitude: 10.293768, longitude: 123.880972 }, // End point
-      ]
+      waypoints: citUToEmallWaypoints,
+      startPoint: citUStart,
+      endPoint: emallEnd
     },
   ];
 
@@ -210,7 +243,7 @@ const routes = () => {
             <React.Fragment key={`markers-${route.id}`}>
               {/* Start Marker */}
               <Marker
-                coordinate={route.waypoints[0]}
+                coordinate={route.startPoint || route.waypoints[0]}
                 title={`${route.code} Start`}
                 description={route.description}
                 pinColor={route.color}
@@ -218,7 +251,7 @@ const routes = () => {
               />
               {/* End Marker */}
               <Marker
-                coordinate={route.waypoints[route.waypoints.length - 1]}
+                coordinate={route.endPoint || route.waypoints[route.waypoints.length - 1]}
                 title={`${route.code} End`}
                 description={route.description}
                 pinColor={route.color}

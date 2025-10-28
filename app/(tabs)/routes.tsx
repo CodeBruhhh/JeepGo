@@ -1,10 +1,19 @@
 import { useRideButton } from '@/contexts/RideButtonContext';
 import React, { useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, PanResponder, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BOTTOM_SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.7;
 const BOTTOM_SHEET_MIN_HEIGHT = SCREEN_HEIGHT * 0.15;
+
+// Cebu City coordinates
+const CEBU_CITY_REGION = {
+  latitude: 10.3157,
+  longitude: 123.8854,
+  latitudeDelta: 0.0922,
+  longitudeDelta: 0.0421,
+};
 
 const routes = () => {
   const panY = useRef(new Animated.Value(BOTTOM_SHEET_MIN_HEIGHT)).current;
@@ -13,25 +22,81 @@ const routes = () => {
   const scrollViewRef = useRef(null);
   const [enableScrolling, setEnableScrolling] = useState(false);
   const { setShowRideButton } = useRideButton();
-  const [selectedRoute, setSelectedRoute] = useState<{ id: number; code: string; description: string } | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [showRouteModal, setShowRouteModal] = useState(false);
+  const [visibleRoutes, setVisibleRoutes] = useState<Set<number>>(new Set());
   
- 
+  // Define routes with their waypoints
   const routesList = [
-    { id: 1, code: '01C', description: 'Private to colon' },
-    { id: 2, code: '01K', description: 'Urgello to Parkmall' },
-    { id: 3, code: '02B', description: 'CSBT to Colon' },
-    { id: 4, code: '03A', description: 'Mabolo to Carbon' },
-    { id: 5, code: '03B', description: 'Mabolo to Carbon' },
-    { id: 6, code: '03L', description: 'Mabolo to Carbon' },
-    { id: 7, code: '03Q', description: 'Ayala to SM City' },
-    { id: 8, code: '04B', description: 'Lahug to Carbon' },
-    { id: 9, code: '05B', description: 'test' },
-    { id: 10, code: '06B', description: 'test2' },
-    { id: 11, code: '67B', description: 'dawg' },
+    { 
+      id: 1, 
+      code: '01C', 
+      description: 'Private to Colon',
+      color: '#FF6B6B',
+      waypoints: [
+        { latitude: 10.2900, longitude: 123.8800 },
+        { latitude: 10.2950, longitude: 123.8850 },
+        { latitude: 10.2976, longitude: 123.9015 }, // End point
+      ]
+    },
+    { 
+      id: 2, 
+      code: '01K', 
+      description: 'Urgello to Parkmall',
+      color: '#4ECDC4',
+      waypoints: [
+        { latitude: 10.3100, longitude: 123.8900 },
+        { latitude: 10.3150, longitude: 123.8950 },
+        { latitude: 10.3200, longitude: 123.9000 }, // End point
+      ]
+    },
+    { 
+      id: 3, 
+      code: '02B', 
+      description: 'CSBT to Colon',
+      color: '#FFD93D',
+      waypoints: [
+        { latitude: 10.3050, longitude: 123.8800 },
+        { latitude: 10.3075, longitude: 123.8850 },
+        { latitude: 10.3100, longitude: 123.8900 }, // End point
+      ]
+    },
+    { 
+      id: 4, 
+      code: '03A', 
+      description: 'Mabolo to Carbon',
+      color: '#95E1D3',
+      waypoints: [
+        { latitude: 10.3300, longitude: 123.8700 },
+        { latitude: 10.3250, longitude: 123.8750 },
+        { latitude: 10.3200, longitude: 123.8800 }, // End point
+      ]
+    },
+    { 
+      id: 5, 
+      code: '06B', 
+      description: 'Talamban to Colon',
+      color: '#A8E6CF',
+      waypoints: [
+        { latitude: 10.3700, longitude: 123.8700 },
+        { latitude: 10.3650, longitude: 123.8750 },
+        { latitude: 10.3600, longitude: 123.8800 }, // End point
+      ]
+    },
+    { 
+      id: 6, 
+      code: '69B', 
+      description: 'CIT-U to Emall',
+      color: '#FF8B94',
+      waypoints: [
+        { latitude: 10.2950, longitude: 123.8750 },
+        { latitude: 10.2945, longitude: 123.8780 },
+        { latitude: 10.293768, longitude: 123.880972 }, // End point
+      ]
+    },
   ];
 
-  const handleRoutePress = (route: { id: number; code: string; description: string }) => {
+  const handleRoutePress = (route: any) => {
     setSelectedRoute(route);
     setShowRouteModal(true);
   };
@@ -41,12 +106,26 @@ const routes = () => {
     setSelectedRoute(null);
   };
 
+  const toggleRouteVisibility = (routeId: number) => {
+    setVisibleRoutes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(routeId)) {
+        newSet.delete(routeId);
+      } else {
+        newSet.add(routeId);
+      }
+      return newSet;
+    });
+  };
+
+  const clearAllRoutes = () => {
+    setVisibleRoutes(new Set());
+  };
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only start responding if there's significant vertical movement
-        // and we're not at max height or scrolling is disabled
         return Math.abs(gestureState.dy) > 5 && !enableScrolling;
       },
       onPanResponderGrant: () => {
@@ -64,19 +143,15 @@ const routes = () => {
       },
       onPanResponderRelease: (event, gestureState) => {
         const currentValue = startPosition.current - gestureState.dy;
-        const velocity = -gestureState.vy; // negative because dy is opposite
+        const velocity = -gestureState.vy;
         
-        // Determine target based on velocity and position
         let targetValue;
         
         if (Math.abs(velocity) > 0.5) {
-          // Fast swipe - use velocity to decide
           targetValue = velocity > 0 ? BOTTOM_SHEET_MAX_HEIGHT : BOTTOM_SHEET_MIN_HEIGHT;
         } else if (Math.abs(gestureState.dy) > 50) {
-          // Slow but significant drag
           targetValue = gestureState.dy < 0 ? BOTTOM_SHEET_MAX_HEIGHT : BOTTOM_SHEET_MIN_HEIGHT;
         } else {
-          // Small movement - snap to nearest
           const midpoint = (BOTTOM_SHEET_MAX_HEIGHT + BOTTOM_SHEET_MIN_HEIGHT) / 2;
           targetValue = currentValue > midpoint ? BOTTOM_SHEET_MAX_HEIGHT : BOTTOM_SHEET_MIN_HEIGHT;
         }
@@ -84,7 +159,7 @@ const routes = () => {
         const willExpand = targetValue === BOTTOM_SHEET_MAX_HEIGHT;
         setIsExpanded(willExpand);
         setEnableScrolling(willExpand);
-        setShowRideButton(!willExpand); // Hide ride button when expanded, show when collapsed
+        setShowRideButton(!willExpand);
         
         Animated.spring(panY, {
           toValue: targetValue,
@@ -103,8 +178,62 @@ const routes = () => {
   };
 
   return (
-    <View className="flex-1 items-center bg-secondary">
-      <Text className="text-5xl text-primary top-64 font-bold">Routes</Text>
+    <View className="flex-1">
+      {/* Map View */}
+      <MapView
+        provider={PROVIDER_GOOGLE}
+        style={{ flex: 1 }}
+        initialRegion={CEBU_CITY_REGION}
+        showsUserLocation={true}
+        showsMyLocationButton={true}
+        showsCompass={true}
+        showsScale={true}
+      >
+        {/* Draw route polylines - only for visible routes */}
+        {routesList
+          .filter(route => visibleRoutes.has(route.id))
+          .map((route) => (
+            <Polyline
+              key={`polyline-${route.id}`}
+              coordinates={route.waypoints}
+              strokeColor={route.color}
+              strokeWidth={4}
+              lineCap="round"
+              lineJoin="round"
+            />
+          ))}
+
+        {/* Start and End Markers for visible routes only */}
+        {routesList
+          .filter(route => visibleRoutes.has(route.id))
+          .map((route) => (
+            <React.Fragment key={`markers-${route.id}`}>
+              {/* Start Marker */}
+              <Marker
+                coordinate={route.waypoints[0]}
+                title={`${route.code} Start`}
+                description={route.description}
+                pinColor={route.color}
+                onPress={() => handleRoutePress(route)}
+              />
+              {/* End Marker */}
+              <Marker
+                coordinate={route.waypoints[route.waypoints.length - 1]}
+                title={`${route.code} End`}
+                description={route.description}
+                pinColor={route.color}
+                onPress={() => handleRoutePress(route)}
+              />
+            </React.Fragment>
+          ))}
+      </MapView>
+
+      {/* Routes Title Overlay */}
+      <View className="absolute top-12 left-0 right-0 items-center">
+        <View className="bg-white/90 rounded-2xl px-6 py-3 shadow-lg">
+          <Text className="text-3xl text-primary font-bold">Routes</Text>
+        </View>
+      </View>
      
       <Animated.View
         style={[animatedStyle]}
@@ -126,18 +255,41 @@ const routes = () => {
           <View className="px-4 pb-6">
             <Text className="text-2xl font-bold text-center mb-4">CEBU CITY ROUTES</Text>
            
-            {/* Dynamic Route Items */}
-            {routesList.map((route) => (
+            {/* Clear All Routes Button */}
+            {visibleRoutes.size > 0 && (
               <TouchableOpacity 
-                key={route.id} 
-                className="bg-purple-300 rounded-2xl p-4 mb-3 flex-row justify-between items-center active:opacity-70"
-                onPress={() => handleRoutePress(route)}
+                className="bg-gray-500 rounded-2xl p-4 mb-3 flex-row justify-center items-center active:opacity-70"
+                onPress={clearAllRoutes}
               >
-                <Text className="font-bold">{route.code}</Text>
-                <Text className="flex-1 ml-4 font-semibold">{route.description}</Text>
-                <Text className="text-xl">›</Text>
+                <Text className="font-bold text-white text-center">Clear All Routes</Text>
               </TouchableOpacity>
-            ))}
+            )}
+
+            {/* Dynamic Route Items */}
+            {routesList.map((route) => {
+              const isVisible = visibleRoutes.has(route.id);
+              return (
+                <TouchableOpacity 
+                  key={route.id} 
+                  className="rounded-2xl p-4 mb-3 flex-row justify-between items-center active:opacity-70"
+                  style={{ 
+                    backgroundColor: isVisible ? route.color : '#E5E7EB',
+                    opacity: isVisible ? 1 : 0.6
+                  }}
+                  onPress={() => toggleRouteVisibility(route.id)}
+                >
+                  <Text className={`font-bold ${isVisible ? 'text-white' : 'text-gray-600'}`}>
+                    {route.code}
+                  </Text>
+                  <Text className={`flex-1 ml-4 font-semibold ${isVisible ? 'text-white' : 'text-gray-600'}`}>
+                    {route.description}
+                  </Text>
+                  <Text className={`text-xl ${isVisible ? 'text-white' : 'text-gray-600'}`}>
+                    {isVisible ? '✓' : '○'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </ScrollView>
       </Animated.View>
@@ -152,7 +304,10 @@ const routes = () => {
         <View className="flex-1 bg-black/50 justify-center items-center px-6">
           <View className="bg-white rounded-2xl p-6 w-full max-w-sm">
             <View className="items-center mb-4">
-              <View className="bg-primary rounded-lg px-4 py-2 mb-3">
+              <View 
+                className="rounded-lg px-4 py-2 mb-3"
+                style={{ backgroundColor: selectedRoute?.color }}
+              >
                 <Text className="text-white font-bold text-xl">{selectedRoute?.code}</Text>
               </View>
               <Text className="text-2xl font-bold text-primary text-center">
@@ -168,6 +323,13 @@ const routes = () => {
             </View>
 
             <View className="mb-6">
+              <Text className="text-lg font-semibold text-gray-700 mb-2">Route Stops:</Text>
+              <Text className="text-base text-gray-600 leading-6">
+                {selectedRoute?.waypoints?.length || 0} waypoints
+              </Text>
+            </View>
+
+            <View className="mb-6">
               <Text className="text-lg font-semibold text-gray-700 mb-2">Route Information:</Text>
               <Text className="text-base text-gray-600 leading-6">
                 This is a public transportation route serving the Cebu City area. 
@@ -175,12 +337,27 @@ const routes = () => {
               </Text>
             </View>
             
-            <TouchableOpacity
-              onPress={closeRouteModal}
-              className="bg-primary rounded-lg py-3"
-            >
-              <Text className="text-center font-semibold text-white text-lg">Close</Text>
-            </TouchableOpacity>
+            <View className="flex-row space-x-3">
+              <TouchableOpacity
+                onPress={() => {
+                  if (selectedRoute) {
+                    toggleRouteVisibility(selectedRoute.id);
+                  }
+                  closeRouteModal();
+                }}
+                className="flex-1 bg-green-500 rounded-lg py-3"
+              >
+                <Text className="text-center font-semibold text-white text-lg">
+                  {selectedRoute && visibleRoutes.has(selectedRoute.id) ? 'Hide Route' : 'Show Route'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={closeRouteModal}
+                className="flex-1 bg-primary rounded-lg py-3"
+              >
+                <Text className="text-center font-semibold text-white text-lg">Close</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

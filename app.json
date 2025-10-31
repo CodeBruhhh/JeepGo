@@ -18,7 +18,18 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.monkefishe.JeepGo"
+      "package": "com.monkefishe.JeepGo",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "jeepgo"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "output": "static",
@@ -37,11 +48,19 @@
             "backgroundColor": "#524F81"
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "826545e3-cf2a-43b6-ac95-08c7c4b49458"
+      }
+    },
+    "owner": "monkefishe"
   }
 }

@@ -17,6 +17,7 @@ const Header = () => {
         justify-between
         border
         elevation-5
+        border-t-0
      '>
       <Image source={icons.jeepGo} className='w-[60] h-[60]' />
 

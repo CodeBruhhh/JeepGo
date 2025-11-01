@@ -21,7 +21,7 @@ export default function Index() {
     console.log([profile])
 
   return (
-    <View className="flex-1 items-center justify-center bg-secondary">
+    <View className="flex-1 items-center justify-center bg-secondary gap-4">
       <Text className="text-5xl text-primary font-bold">Welcome!</Text>
       <Text className="text-2xl text-primary font-bold text-center">Email: {profile?.email}</Text>
       <Text className="text-2xl text-primary font-bold text-center">Full Name: {profile?.user_metadata.full_name}</Text>

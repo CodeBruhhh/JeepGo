@@ -1,6 +1,6 @@
 import { supabase } from '@/services/supabase'
 import React from 'react'
-import { Button } from 'react-native'
+import { Text, TouchableOpacity } from 'react-native'
 
 async function onSignOutButtonPress() {
   const { error } = await supabase.auth.signOut()
@@ -11,5 +11,10 @@ async function onSignOutButtonPress() {
 }
 
 export default function SignOutButton() {
-  return <Button title="Sign out" onPress={onSignOutButtonPress} />
+  return <TouchableOpacity 
+  onPress={onSignOutButtonPress}
+  className='w-[100] h-[40] bg-red-500 justify-center items-center rounded-2xl'
+  >
+    <Text className='text-xl font-bold text-white'>Sign Out</Text>
+  </TouchableOpacity>
 }

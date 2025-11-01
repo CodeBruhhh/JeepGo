@@ -1,10 +1,32 @@
-import { icons } from '@/constants/icons'
-import React from 'react'
-import { Image, TouchableOpacity, View } from 'react-native'
+import { icons } from '@/constants/icons';
+import React, { forwardRef, useImperativeHandle } from 'react';
+import { Image, TouchableOpacity } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-const Header = () => {
+const Header = forwardRef((_, ref) => {
+  const translateY = useSharedValue(0);
+
+  const hideHeader = () => {
+    translateY.value = withTiming(-80, { duration: 250 }); // slides up
+  };
+
+  const showHeader = () => {
+    translateY.value = withTiming(0, { duration: 250 }); // slides back down
+  };
+
+  useImperativeHandle(ref, () => ({
+    hideHeader,
+    showHeader,
+  }));
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
   return (
-    <View className='
+    <Animated.View
+      style={[animatedStyle]}
+      className='
         w-full
         h-[60px] 
         bg-tertiary 
@@ -18,14 +40,14 @@ const Header = () => {
         border
         elevation-5
         border-t-0
-     '>
+      '
+    >
       <Image source={icons.jeepGo} className='w-[60] h-[60]' />
-
       <TouchableOpacity>
-        <Image source={icons.notification} className='w-[30] h-[30]'/>
+        <Image source={icons.notification} className='w-[30] h-[30]' />
       </TouchableOpacity>
-    </View>
-  )
-}
+    </Animated.View>
+  );
+});
 
-export default Header
+export default Header;

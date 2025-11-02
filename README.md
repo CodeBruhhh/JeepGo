@@ -18,7 +18,7 @@ npm install @supabase/supabase-js
 
 npx expo install @react-native-async-storage/async-storage
 
-npm install --save @rneui/themed react-native-url-polyfill --legacy-peer-deps
+npm install --save react-native-url-polyfill --legacy-peer-deps
 
 npx expo install expo-secure-store expo-splash-screen
 

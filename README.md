@@ -8,6 +8,8 @@ Download node.js
 
 Go to terminal
 
+npm install expo
+
 npx expo install expo-router
 
 npm install nativewind tailwindcss

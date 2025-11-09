@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 
 export default function MapScreen() {
   const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
@@ -34,6 +34,7 @@ export default function MapScreen() {
   return (
     <View className="flex-1">
       <MapView
+        provider={PROVIDER_GOOGLE}
         className="flex-1"
         region={region}
         showsUserLocation

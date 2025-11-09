@@ -22,6 +22,7 @@ export default {
         apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
       },
     },
+    permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
     adaptiveIcon: {
       backgroundColor: '#D0C9EA',
       foregroundImage: './assets/images/JeepGo_Logo.png',
@@ -65,7 +66,17 @@ export default {
           }
         }
       }
-    ]
+    ],
+    [
+      "expo-location",
+      [
+        "react-native-maps",
+        {
+          // optional config if needed
+          googleMaps: true,
+        },
+      ],
+    ],
   ],
   experiments: {
     typedRoutes: true,

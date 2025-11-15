@@ -11,8 +11,9 @@ module.exports = {
         'bg': '#F1F1F1', // Light background for the main content
         'dark': '#3C3C3C', // Dark gray for text and icons
         'accent': '#9B79A1', // Accent color (darker purple for contrast)
-        'btn': '#D6C2E1', // Button hover color
+        'btn-hover': '#D6C2E1', // Button hover color
         'highlight': '#D0C9EA', // Light background for cards and elements
+        'shadow': '#ccc'
       }
     },
   },

@@ -1,5 +1,6 @@
 import BottomNavigationBar from "@/components/BottomNavigationBar";
 import Header from "@/components/Header";
+import { RideButtonProvider, useRideButton } from "@/contexts/RideButtonContext";
 import { Tabs } from "expo-router";
 import React, { useState } from "react";
 import { View } from "react-native";

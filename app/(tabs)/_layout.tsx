@@ -35,14 +35,14 @@ const _layout = () => {
             // Add screen names to the hideList to trigger hiding and showing
             screenListeners={{
                 focus: (e) => {
-                const hideList = ['ride'];
+                const hideList = ['ride', 'routes', 'map_screen'];
                 if (hideList.some((name) => e.target?.includes(name))) {
                     setShowBar(false);
                     headerRef.current?.hideHeader();
                 }
                 },
                 blur: (e) => {
-                const hideList = ['ride'];
+                const hideList = ['ride', 'routes', 'map_screen'];
                 if (hideList.some((name) => e.target?.includes(name))) {
                     setShowBar(true);
                     headerRef.current?.showHeader();
@@ -66,6 +66,7 @@ const _layout = () => {
             <Tabs.Screen name="ride" options={{ headerShown: false , title: 'Start Ride'}} />
             <Tabs.Screen name="fares" options={{ headerShown: false , title: 'Fares'}} />
             <Tabs.Screen name="account" options={{ headerShown: false , title: 'Account'}} />
+            <Tabs.Screen name="map_screen" options={{ headerShown: false , title: 'MapScreen'}} />
             </Tabs>
       </View>
   );

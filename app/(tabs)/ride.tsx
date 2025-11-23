@@ -1,9 +1,36 @@
 import ArrowBack from '@/assets/icons/arrow_back.png';
 import LocationIcon from '@/assets/icons/purple_location_icon.png';
 import { Ionicons } from '@expo/vector-icons';
+import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+class Cache {
+  private cache = new Map<string, { data: any; timestamp: number }>();
+  private ttl: number;
+
+  constructor(ttlMinutes: number = 30) {
+    this.ttl = ttlMinutes * 60 * 1000;
+  }
+
+  set(key: string, data: any) {
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  get(key: string) {
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+    if (Date.now() - cached.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+    return cached.data;
+  }
+}
+
+const autocompleteCache = new Cache(30);
+const placeDetailsCache = new Cache(60);
 
 const ride = () => {
   type PlacePrediction = {
@@ -18,58 +45,115 @@ const ride = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [loading, setLoading] = useState(false);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Safe UUID generator
+  const generateUUID = async () => {
+    const maybeUuid = Crypto.randomUUID();
+    return typeof maybeUuid === 'string' ? maybeUuid : await maybeUuid;
+  };
+
+  // Session token ref
+  const sessionTokenRef = useRef<string>('');
+
+  // Initialize once
+  useEffect(() => {
+    (async () => {
+      sessionTokenRef.current = await generateUUID();
+    })();
+  }, []);
   
   const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-  const searchPlaces = async (text: string) => {
+  const searchPlaces = useCallback(async (text: string) => {
     setSearchQuery(text);
     
-    if (text.length > 2) {
+    // Clear previous timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    if (text.length < 3) {
+      setPredictions([]);
+      return;
+    }
+
+    // Debounce - wait 500ms after user stops typing
+    debounceTimerRef.current = setTimeout(async () => {
+      const cacheKey = `autocomplete_${text.toLowerCase()}`;
+      
+      // Check cache first
+      const cached = autocompleteCache.get(cacheKey);
+      if (cached) {
+        console.log('Using cached results for:', text);
+        setPredictions(cached);
+        return;
+      }
+
+      // Fetch from API
+      console.log('Fetching from Places API:', text);
       setLoading(true);
       try {
         const response = await fetch(
-          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&key=${API_KEY}`
+          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&sessiontoken=${sessionTokenRef.current}&key=${API_KEY}`
         );
         const data = await response.json();
         
         if (data.status === 'OK') {
-          setPredictions(data.predictions as PlacePrediction[]);
-
+          setPredictions(data.predictions);
+          autocompleteCache.set(cacheKey, data.predictions);
         } else {
-          console.error('API Error:', data.status, data.error_message);
-          setPredictions(data.predictions as PlacePrediction[]);
-
+          console.error('API Error:', data.status);
+          setPredictions([]);
         }
       } catch (error) {
         console.error('Fetch error:', error);
       } finally {
         setLoading(false);
       }
-    } else {
-      setPredictions([]);
-    }
-  };
+    }, 500);
+  }, []);
 
   const selectPlace = async (placeId: string) => {
+    const cacheKey = `place_details_${placeId}`;
+    
+    // Check cache
+    const cached = placeDetailsCache.get(cacheKey);
+    if (cached) {
+      console.log('Using cached place details');
+      setSearchQuery(cached.name);
+      setPredictions([]);
+      return;
+    }
+
+    // Fetch from API
+    console.log('Fetching place details');
     try {
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${API_KEY}`
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&sessiontoken=${sessionTokenRef.current}&key=${API_KEY}`
       );
       const data = await response.json();
       
       if (data.status === 'OK') {
-        console.log('Selected place:', data.result);
-        const location = data.result.geometry.location;
-        console.log('Coordinates:', location.lat, location.lng);
+        const place = data.result;
+        placeDetailsCache.set(cacheKey, place);
         
-        // Clear search and close dropdown
-        setSearchQuery(data.result.name);
+        console.log('Selected place:', place);
+        setSearchQuery(place.name);
         setPredictions([]);
       }
     } catch (error) {
       console.error('Error getting place details:', error);
     }
   };
+
+  // Reset session token when user clears search
+  const clearSearch = async () => {
+    setSearchQuery('');
+    setPredictions([]);
+    sessionTokenRef.current = await generateUUID(); // generate new session token
+  };
+
 
   return (
         //add linear gradient later
@@ -105,13 +189,13 @@ const ride = () => {
                 />
                 {loading && <ActivityIndicator size="small" className="mr-2" />}
                 {searchQuery.length > 0 && !loading && (
-                  <TouchableOpacity onPress={() => { setSearchQuery(''); setPredictions([]); }} className="mr-2">
+                  <TouchableOpacity onPress={clearSearch} className="mr-2">
                     <Ionicons name="close-circle" size={20} color="#666" />
                   </TouchableOpacity>
                 )}
               </View>
 
-              {/* Suggestions Dropdown - Make it absolute */}
+              {/* Suggestions Dropdown - absolute position*/}
               {predictions.length > 0 && (
                 <View 
                   className="absolute top-[125] w-full bg-white rounded-lg border border-gray-200 z-50 max-h-[300]"
@@ -162,7 +246,7 @@ const ride = () => {
               <View className='w-full items-center gap-[15]'>
                 <TouchableOpacity 
                 className='w-[80%] h-[75] rounded-xl bg-highlight p-[15]' 
-                onPress={() => router.back()}
+                onPress={() => router.push('/(tabs)/map_screen')}
                 activeOpacity={0.8}
                 >
                   <Text className='text-xl font-bold'>Location Name</Text>

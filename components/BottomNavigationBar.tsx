@@ -55,7 +55,7 @@ const BottomNavigationBar: React.FC<CustomTabBarProps> = ({
         {
           flexDirection: 'row',
           height: 100,
-          backgroundColor: '#CDA678',
+          backgroundColor: '#DDC6A1',
           position: 'absolute',
           bottom: 0,
           left: 0,

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { FlatList, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const fares = () => {
   const [fromLocation, setFromLocation] = useState('');
@@ -10,7 +10,6 @@ const fares = () => {
   const [calculatedFare, setCalculatedFare] = useState('');
   const [filterDestination, setFilterDestination] = useState('');
   
-  // Modal states
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker] = useState(false);
   const [showPassengerPicker, setShowPassengerPicker] = useState(false);
@@ -96,7 +95,6 @@ const fares = () => {
 
         {/* Filter Destination */}
         <View className="mb-4">
-          <Text className="text-sm font-semibold text-dark mb-2 text-center">Filter Destination</Text>
           <TouchableOpacity
             onPress={() => setShowFilterPicker(true)}
             className="bg-white border-2 border-primary rounded-lg py-3 px-4 flex-row justify-between items-center"

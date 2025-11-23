@@ -273,7 +273,7 @@ const routes = () => {
         const willExpand = targetValue === BOTTOM_SHEET_MAX_HEIGHT;
         setIsExpanded(willExpand);
         setEnableScrolling(willExpand);
-        
+
         Animated.spring(panY, {
           toValue: targetValue,
           velocity: velocity,

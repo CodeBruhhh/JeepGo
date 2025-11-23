@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "Untitled layer",
+"features": [
+{ "type": "Feature", "properties": { "Name": "Emall" }, "geometry": { "type": "Point", "coordinates": [ 123.8950845, 10.2987264, 0.0 ] } },
+{ "type": "Feature", "properties": { "Name": "CIT-U" }, "geometry": { "type": "Point", "coordinates": [ 123.8814132, 10.2940573, 0.0 ] } }
+]
+}

@@ -13,13 +13,13 @@ export default {
   ios: {
     supportsTablet: true,
     config: {
-      googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+      googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
     },
   },
   android: {
     config: {
       googleMaps: {
-        apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+        apiKey: process.env.GOOGLE_MAPS_API_KEY,
       },
     },
     permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
@@ -57,26 +57,6 @@ export default {
       },
     ],
     'expo-secure-store',
-    [
-    "expo-build-properties",
-      {
-        android: {
-          manifestPlaceholders: {
-            GOOGLE_MAPS_API_KEY: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY
-          }
-        }
-      }
-    ],
-    [
-      "expo-location",
-      [
-        "react-native-maps",
-        {
-          // optional config if needed
-          googleMaps: true,
-        },
-      ],
-    ],
   ],
   experiments: {
     typedRoutes: true,

@@ -25,7 +25,12 @@ const Header = forwardRef((_, ref) => {
 
   return (
     <Animated.View
-      style={[animatedStyle]}
+      style={[
+        animatedStyle,
+        {
+          boxShadow: "0px 5px 10px rgba(0, 0, 0, 0.2)"
+        }
+      ]}
       className='
         w-full
         h-[60px] 
@@ -37,10 +42,8 @@ const Header = forwardRef((_, ref) => {
         items-center
         pr-4
         justify-between
-        border
-        elevation-5
-        border-t-0
-      '
+        elevation-4 
+        shadow-xl'
     >
       <Image source={icons.jeepGo} className='w-[60] h-[60]' />
       <TouchableOpacity>

@@ -22,14 +22,14 @@ const _layout = () => {
             // Add screen names to the hideList to trigger hiding and showing
             screenListeners={{
                 focus: (e) => {
-                const hideList = ['ride', 'routes'];
+                const hideList = ['ride', 'routes', 'map_screen'];
                 if (hideList.some((name) => e.target?.includes(name))) {
                     setShowBar(false);
                     headerRef.current?.hideHeader();
                 }
                 },
                 blur: (e) => {
-                const hideList = ['ride', 'routes'];
+                const hideList = ['ride', 'routes', 'map_screen'];
                 if (hideList.some((name) => e.target?.includes(name))) {
                     setShowBar(true);
                     headerRef.current?.showHeader();
@@ -47,12 +47,13 @@ const _layout = () => {
                 />
             )}
             >
-            <Tabs.Screen name="index" options={{ headerShown: false }} />
-            <Tabs.Screen name="history" options={{ headerShown: false }} />
-            <Tabs.Screen name="routes" options={{ headerShown: false }} />
-            <Tabs.Screen name="ride" options={{ headerShown: false }} />
-            <Tabs.Screen name="fares" options={{ headerShown: false }} />
-            <Tabs.Screen name="account" options={{ headerShown: false }} />
+            <Tabs.Screen name="index" options={{ headerShown: false, title: 'Home' }} />
+            <Tabs.Screen name="history" options={{ headerShown: false , title: 'History'}} />
+            <Tabs.Screen name="routes" options={{ headerShown: false , title: 'Routes'}} />
+            <Tabs.Screen name="ride" options={{ headerShown: false , title: 'Start Ride'}} />
+            <Tabs.Screen name="fares" options={{ headerShown: false , title: 'Fares'}} />
+            <Tabs.Screen name="account" options={{ headerShown: false , title: 'Account'}} />
+            <Tabs.Screen name="map_screen" options={{ headerShown: false , title: 'MapScreen'}} />
             </Tabs>
     </View>
   );

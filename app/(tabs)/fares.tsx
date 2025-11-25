@@ -1,36 +1,242 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import Constants from 'expo-constants';
+import React, { useMemo, useState } from 'react';
 import { FlatList, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+
+import { citUToEmallRoute } from '@/assets/routes/citu-to-emall';
+import { route01CPrivateToColon } from '@/assets/routes/route-01c-private-to-colon';
+
+const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  Parkmall: { lat: 10.3241, lng: 123.9229 },
+  Urgello: { lat: 10.3001, lng: 123.889 },
+  Capitol: { lat: 10.311, lng: 123.896 },
+  Ayala: { lat: 10.3187, lng: 123.9051 },
+  Colon: { lat: 10.2969, lng: 123.9036 },
+  Talamban: { lat: 10.3586, lng: 123.913 },
+  Mabolo: { lat: 10.3248, lng: 123.9184 },
+  Carbon: { lat: 10.2945, lng: 123.9034 },
+  CSBT: { lat: 10.3049, lng: 123.9005 },
+  'CIT University': { lat: 10.2998, lng: 123.8893 },
+  'Elizabeth Mall': { lat: 10.2975, lng: 123.9038 },
+  'USC Private': { lat: 10.2986, lng: 123.8999 },
+  'Fuente Osmeña': { lat: 10.3104, lng: 123.8931 },
+};
+
+const geoJsonLineToPolyline = (geoJson: any) => {
+  const lineString = geoJson?.features?.find((feature: any) => feature.geometry?.type === 'LineString');
+  if (!lineString) return [];
+
+  return lineString.geometry.coordinates.map((coord: number[]) => ({
+    latitude: coord[1],
+    longitude: coord[0],
+  }));
+};
+
+const ROUTE_OPTIONS = [
+  {
+    code: '01C',
+    label: '01C - Private to Colon',
+    stops: ['USC Private', 'Fuente Osmeña', 'Colon'],
+    polyline: geoJsonLineToPolyline(route01CPrivateToColon),
+  },
+  {
+    code: '01K',
+    label: '01K - Urgello to Parkmall',
+    stops: ['Urgello', 'Capitol', 'Ayala', 'Parkmall'],
+    polyline: [
+      { latitude: 10.3001, longitude: 123.889 },
+      { latitude: 10.311, longitude: 123.896 },
+      { latitude: 10.3187, longitude: 123.9051 },
+      { latitude: 10.3241, longitude: 123.9229 },
+    ],
+  },
+  {
+    code: '02B',
+    label: '02B - CSBT to Colon',
+    stops: ['CSBT', 'Fuente Osmeña', 'Colon'],
+  },
+  {
+    code: '03A',
+    label: '03A - Mabolo to Carbon',
+    stops: ['Mabolo', 'Ayala', 'Carbon'],
+  },
+  {
+    code: '06B',
+    label: '06B - Talamban to Colon',
+    stops: ['Talamban', 'Capitol', 'Colon'],
+  },
+  {
+    code: '69B',
+    label: '69B - CIT-U to E-mall',
+    stops: ['CIT University', 'Fuente Osmeña', 'Elizabeth Mall'],
+    polyline: geoJsonLineToPolyline(citUToEmallRoute),
+  },
+];
+
+const FILTER_OPTIONS = ['All Stops (Manual)', ...ROUTE_OPTIONS.map((route) => route.label)];
+const DEFAULT_STOPS = Object.keys(LOCATION_COORDINATES);
+const PASSENGER_TYPES = ['Regular', 'Student', 'Senior', 'PWD'];
 
 const fares = () => {
   const [fromLocation, setFromLocation] = useState('');
   const [toLocation, setToLocation] = useState('');
-  const [distance, setDistance] = useState('');
+  const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [passengerType, setPassengerType] = useState('Regular');
   const [calculatedFare, setCalculatedFare] = useState('');
   const [filterDestination, setFilterDestination] = useState('');
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker] = useState(false);
   const [showPassengerPicker, setShowPassengerPicker] = useState(false);
   const [showFilterPicker, setShowFilterPicker] = useState(false);
+  const [showMap, setShowMap] = useState(false);
+  const [availableStops, setAvailableStops] = useState(DEFAULT_STOPS);
+  const [routeLineCoords, setRouteLineCoords] = useState<{ latitude: number; longitude: number }[]>([]);
 
-  const locations = ['Parkmall', 'Urgello', 'Capitol', 'Ayala'];
-  const passengerTypes = ['Regular', 'Student', 'Senior', 'PWD'];
+  const fareMatrix = {
+    Regular: { baseFare: 13, succeedingRate: 1.8 },
+    Discounted: { baseFare: 9.6, succeedingRate: 1.44 },
+  };
 
-  const handleCalculateFare = () => {
-    if (fromLocation && toLocation && distance) {
-      const baseFare = 10;
-      const distanceFare = parseFloat(distance) * 1.5;
-      let discount = 0;
-      
-      if (passengerType === 'Student') discount = 0.2;
-      else if (passengerType === 'Senior' || passengerType === 'PWD') discount = 0.3;
-      
-      const total = (baseFare + distanceFare) * (1 - discount);
-      setCalculatedFare(`P ${total.toFixed(2)}`);
-    } else {
+  const fetchDistanceFromGoogle = async (origin: string, destination: string) => {
+    const apiKey =
+      process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+      (Constants?.expoConfig?.extra as { googleMapsApiKey?: string })?.googleMapsApiKey;
+
+    if (!apiKey) {
+      throw new Error('Missing Google Maps API key. Set EXPO_PUBLIC_GOOGLE_MAPS_API_KEY in your env file.');
+    }
+
+    const originCoords = LOCATION_COORDINATES[origin];
+    const destinationCoords = LOCATION_COORDINATES[destination];
+
+    if (!originCoords || !destinationCoords) {
+      throw new Error('Unknown location coordinates');
+    }
+
+    const originParam = `${originCoords.lat},${originCoords.lng}`;
+    const destinationParam = `${destinationCoords.lat},${destinationCoords.lng}`;
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${encodeURIComponent(
+      originParam,
+    )}&destinations=${encodeURIComponent(destinationParam)}&key=${apiKey}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status !== 'OK') {
+      throw new Error('Distance Matrix request failed');
+    }
+
+    const element = data.rows?.[0]?.elements?.[0];
+    if (!element || element.status !== 'OK') {
+      throw new Error('Distance not available for selected route');
+    }
+
+    return element.distance.value / 1000; // convert meters to km
+  };
+
+  const calculateFareAmount = (km: number, type: string) => {
+    if (km <= 0) return 0;
+
+    const baseKm = 4;
+    const isDiscounted = type === 'Student' || type === 'Senior' || type === 'PWD';
+    const rates = isDiscounted ? fareMatrix.Discounted : fareMatrix.Regular;
+    const excessKm = Math.max(km - baseKm, 0);
+
+    return rates.baseFare + excessKm * rates.succeedingRate;
+  };
+
+  const fallbackPolyline = useMemo(
+    () =>
+      availableStops
+        .map((stop) => LOCATION_COORDINATES[stop])
+        .filter(Boolean)
+        .map((coords) => ({
+          latitude: coords!.lat,
+          longitude: coords!.lng,
+        })),
+    [availableStops],
+  );
+
+  const handleFilterSelection = (value: string) => {
+    setFilterDestination(value === 'All Stops (Manual)' ? '' : value);
+
+    if (value === 'All Stops (Manual)') {
+      setAvailableStops(DEFAULT_STOPS);
+      setFromLocation('');
+      setToLocation('');
+      setDistanceKm(null);
       setCalculatedFare('');
+      setRouteLineCoords([]);
+      return;
+    }
+
+    const matchedRoute = ROUTE_OPTIONS.find((route) => route.label === value);
+    if (matchedRoute) {
+      setAvailableStops(matchedRoute.stops);
+      setFromLocation(matchedRoute.stops[0]);
+      setToLocation(matchedRoute.stops[matchedRoute.stops.length - 1]);
+      setDistanceKm(null);
+      setCalculatedFare('');
+      if (matchedRoute.polyline && matchedRoute.polyline.length > 1) {
+        setRouteLineCoords(matchedRoute.polyline);
+      } else {
+        const line = matchedRoute.stops
+          .map((stop) => LOCATION_COORDINATES[stop])
+          .filter(Boolean)
+          .map((coords) => ({
+            latitude: coords!.lat,
+            longitude: coords!.lng,
+          }));
+        setRouteLineCoords(line);
+      }
+    }
+  };
+
+  const computedRegion =
+    fromLocation &&
+    toLocation &&
+    LOCATION_COORDINATES[fromLocation] &&
+    LOCATION_COORDINATES[toLocation]
+      ? {
+          latitude: (LOCATION_COORDINATES[fromLocation].lat + LOCATION_COORDINATES[toLocation].lat) / 2,
+          longitude: (LOCATION_COORDINATES[fromLocation].lng + LOCATION_COORDINATES[toLocation].lng) / 2,
+          latitudeDelta:
+            Math.abs(LOCATION_COORDINATES[fromLocation].lat - LOCATION_COORDINATES[toLocation].lat) + 0.05,
+          longitudeDelta:
+            Math.abs(LOCATION_COORDINATES[fromLocation].lng - LOCATION_COORDINATES[toLocation].lng) + 0.05,
+        }
+      : null;
+
+  const handleCalculateFare = async () => {
+    if (!fromLocation || !toLocation) {
+      setErrorMessage('Please select both origin and destination.');
+      return;
+    }
+
+    if (fromLocation === toLocation) {
+      setErrorMessage('Origin and destination must be different.');
+      return;
+    }
+
+    try {
+      setIsCalculating(true);
+      setErrorMessage('');
+
+      const km = await fetchDistanceFromGoogle(fromLocation, toLocation);
+      setDistanceKm(km);
+
+      const fareAmount = calculateFareAmount(km, passengerType);
+      setCalculatedFare(`₱ ${fareAmount.toFixed(2)}`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to calculate fare.');
+      setCalculatedFare('');
+      setDistanceKm(null);
+    } finally {
+      setIsCalculating(false);
     }
   };
 
@@ -106,7 +312,68 @@ const fares = () => {
 
         {/* Fare Calculator Section */}
         <View className="bg-white border-2 border-primary rounded-lg p-4 mb-4">
-          <Text className="text-xl font-bold text-primary mb-4 text-center">Fare Calculator</Text>
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-xl font-bold text-primary text-center flex-1">Fare Calculator</Text>
+            <TouchableOpacity
+              onPress={() => setShowMap((prev) => !prev)}
+              className="bg-primary/10 border border-primary rounded-lg px-3 py-1 ml-3"
+            >
+              <Text className="text-primary font-semibold text-sm">{showMap ? 'Hide Map' : 'Show Map'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {showMap && (
+            <View className="mb-4">
+              <View className="h-64 rounded-lg overflow-hidden border border-gray-200">
+                <MapView
+                  provider={PROVIDER_GOOGLE}
+                  style={{ flex: 1 }}
+                  initialRegion={{
+                    latitude: 10.3157,
+                    longitude: 123.8854,
+                    latitudeDelta: 0.08,
+                    longitudeDelta: 0.08,
+                  }}
+                  {...(computedRegion ? { region: computedRegion } : {})}
+                >
+                  {(routeLineCoords.length > 1 ? routeLineCoords : fallbackPolyline).length > 1 && (
+                    <Polyline
+                      coordinates={routeLineCoords.length > 1 ? routeLineCoords : fallbackPolyline}
+                      strokeColor="#8D5C8A"
+                      strokeWidth={4}
+                      lineCap="round"
+                      lineJoin="round"
+                    />
+                  )}
+                  {fromLocation && LOCATION_COORDINATES[fromLocation] && (
+                    <Marker
+                      coordinate={{
+                        latitude: LOCATION_COORDINATES[fromLocation].lat,
+                        longitude: LOCATION_COORDINATES[fromLocation].lng,
+                      }}
+                      title="Start"
+                      description={fromLocation}
+                      pinColor="green"
+                    />
+                  )}
+                  {toLocation && LOCATION_COORDINATES[toLocation] && (
+                    <Marker
+                      coordinate={{
+                        latitude: LOCATION_COORDINATES[toLocation].lat,
+                        longitude: LOCATION_COORDINATES[toLocation].lng,
+                      }}
+                      title="Destination"
+                      description={toLocation}
+                      pinColor="red"
+                    />
+                  )}
+                </MapView>
+              </View>
+              <Text className="text-xs text-center text-gray-500 mt-1">
+                Map previews adjust once both start and destination are selected.
+              </Text>
+            </View>
+          )}
 
           {/* From Field */}
           <View className="mb-4">
@@ -141,14 +408,11 @@ const fares = () => {
           {/* Distance Field */}
           <View className="mb-4">
             <Text className="text-sm font-semibold text-dark mb-2 text-center">Distance</Text>
-            <TextInput
-              className="bg-highlight border border-gray-300 rounded-lg px-4 py-3 text-dark text-center"
-              placeholder="Enter distance (km)"
-              placeholderTextColor="#9CA3AF"
-              value={distance}
-              onChangeText={setDistance}
-              keyboardType="numeric"
-            />
+            <View className="bg-highlight border border-gray-300 rounded-lg px-4 py-3 items-center">
+              <Text className="text-dark">
+                {distanceKm !== null ? `${distanceKm.toFixed(2)} km` : 'Distance will appear after calculation'}
+              </Text>
+            </View>
           </View>
 
           {/* Passenger Type */}
@@ -166,10 +430,17 @@ const fares = () => {
           {/* Calculate Fare Button */}
           <TouchableOpacity
             onPress={handleCalculateFare}
-            className="bg-primary py-3 rounded-lg mb-4"
+            className={`py-3 rounded-lg mb-4 ${isCalculating ? 'bg-primary/60' : 'bg-primary'}`}
+            disabled={isCalculating}
           >
-            <Text className="text-white text-center font-bold text-lg">Calculate Fare</Text>
+            <Text className="text-white text-center font-bold text-lg">
+              {isCalculating ? 'Computing…' : 'Calculate Fare'}
+            </Text>
           </TouchableOpacity>
+
+          {errorMessage ? (
+            <Text className="text-center text-red-500 mb-2">{errorMessage}</Text>
+          ) : null}
 
           {/* Calculated Fare Result */}
           <TextInput
@@ -186,16 +457,16 @@ const fares = () => {
       <PickerModal
         visible={showFilterPicker}
         onClose={() => setShowFilterPicker(false)}
-        options={['Filter Destination', ...locations]}
-        selectedValue={filterDestination || 'Filter Destination'}
-        onSelect={(value) => setFilterDestination(value === 'Filter Destination' ? '' : value)}
+        options={FILTER_OPTIONS}
+        selectedValue={filterDestination || 'All Stops (Manual)'}
+        onSelect={handleFilterSelection}
         title="Filter Destination"
       />
 
       <PickerModal
         visible={showFromPicker}
         onClose={() => setShowFromPicker(false)}
-        options={locations}
+        options={availableStops}
         selectedValue={fromLocation}
         onSelect={setFromLocation}
         title="Select Starting Point"
@@ -204,7 +475,7 @@ const fares = () => {
       <PickerModal
         visible={showToPicker}
         onClose={() => setShowToPicker(false)}
-        options={locations}
+        options={availableStops}
         selectedValue={toLocation}
         onSelect={setToLocation}
         title="Select Destination"
@@ -213,7 +484,7 @@ const fares = () => {
       <PickerModal
         visible={showPassengerPicker}
         onClose={() => setShowPassengerPicker(false)}
-        options={passengerTypes}
+        options={PASSENGER_TYPES}
         selectedValue={passengerType}
         onSelect={setPassengerType}
         title="Passenger Type"

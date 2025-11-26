@@ -290,6 +290,13 @@ const routes = () => {
     bottom: 0,
   };
 
+  // Ensure header/footer are restored when leaving this screen
+  useEffect(() => {
+    return () => {
+      setShowRideButton(true);
+    };
+  }, [setShowRideButton]);
+
   return (
     <View className="flex-1">
       {/* Map View */}

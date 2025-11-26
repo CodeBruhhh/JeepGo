@@ -1,7 +1,7 @@
 import { citUToEmallRoute } from '@/assets/routes/citu-to-emall';
 import { route01CPrivateToColon } from '@/assets/routes/route-01c-private-to-colon';
 import { useRideButton } from '@/contexts/RideButtonContext';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, PanResponder, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
@@ -209,6 +209,13 @@ const routes = () => {
     height: panY,
     bottom: 0,
   };
+
+  // Ensure header/footer are restored when leaving this screen
+  useEffect(() => {
+    return () => {
+      setShowRideButton(true);
+    };
+  }, [setShowRideButton]);
 
   return (
     <View className="flex-1">

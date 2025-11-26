@@ -1,18 +1,30 @@
 import BottomNavigationBar from "@/components/BottomNavigationBar";
 import Header from "@/components/Header";
 import { Tabs } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View } from "react-native";
 
 const _layout = () => {
   const [showBar, setShowBar] = useState(true); // For hiding navigation
   const headerRef = React.useRef<{ hideHeader: () => void; showHeader: () => void }>(null); // For hiding header
+  const { showRideButton } = useRideButton();
+
+  // Sync header/footer visibility with bottom sheet state from context (used on routes screen)
+  useEffect(() => {
+    if (showRideButton) {
+      setShowBar(true);
+      headerRef.current?.showHeader();
+    } else {
+      setShowBar(false);
+      headerRef.current?.hideHeader();
+    }
+  }, [showRideButton]);
 
   return (
-    <View style={{ flex: 1 }}>
-      <Header ref={headerRef} />
+      <View style={{ flex: 1 }}>
+        <Header ref={headerRef} />
 
-      <Tabs
+        <Tabs
             initialRouteName="index"
             screenOptions={{
                 tabBarShowLabel: false,
@@ -22,14 +34,14 @@ const _layout = () => {
             // Add screen names to the hideList to trigger hiding and showing
             screenListeners={{
                 focus: (e) => {
-                const hideList = ['ride', 'routes'];
+                const hideList = ['ride'];
                 if (hideList.some((name) => e.target?.includes(name))) {
                     setShowBar(false);
                     headerRef.current?.hideHeader();
                 }
                 },
                 blur: (e) => {
-                const hideList = ['ride', 'routes'];
+                const hideList = ['ride'];
                 if (hideList.some((name) => e.target?.includes(name))) {
                     setShowBar(true);
                     headerRef.current?.showHeader();
@@ -54,7 +66,7 @@ const _layout = () => {
             <Tabs.Screen name="fares" options={{ headerShown: false }} />
             <Tabs.Screen name="account" options={{ headerShown: false }} />
             </Tabs>
-    </View>
+      </View>
   );
 };
 

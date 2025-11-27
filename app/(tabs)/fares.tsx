@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import React, { useMemo, useState } from 'react';
 import { FlatList, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapViewDirections from 'react-native-maps-directions';
 
 import { citUToEmallRoute } from '@/assets/routes/citu-to-emall';
 import { route01CPrivateToColon } from '@/assets/routes/route-01c-private-to-colon';
@@ -239,6 +240,31 @@ const fares = () => {
     [availableStops],
   );
 
+  type LatLngPoint = { latitude: number; longitude: number };
+
+  const getStopCoordinateOnRoute = (stopName: string): LatLngPoint | null => {
+    const base = LOCATION_COORDINATES[stopName];
+    const baseCoords: LatLngPoint | null = base ? { latitude: base.lat, longitude: base.lng } : null;
+    if (!stopName || (!routeLineCoords.length && !baseCoords)) return null;
+
+    // When a specific jeepney route is active, snap markers to that route line
+    if (routeLineCoords.length > 1 && availableStops.includes(stopName)) {
+      const index = availableStops.indexOf(stopName);
+      const t =
+        availableStops.length <= 1 ? 0 : index / Math.max(availableStops.length - 1, 1);
+      const routeIndex = Math.round(t * (routeLineCoords.length - 1));
+      return routeLineCoords[routeIndex] || baseCoords || null;
+    }
+
+    // Manual mode: use static coordinates
+    return baseCoords || null;
+  };
+
+  const googleApiKey =
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+    (Constants?.expoConfig?.extra as { googleMapsApiKey?: string })?.googleMapsApiKey ||
+    '';
+
   const handleFilterSelection = (value: string) => {
     setFilterDestination(value === 'All Stops (Manual)' ? '' : value);
 
@@ -274,20 +300,19 @@ const fares = () => {
     }
   };
 
-  const computedRegion =
-    fromLocation &&
-    toLocation &&
-    LOCATION_COORDINATES[fromLocation] &&
-    LOCATION_COORDINATES[toLocation]
-      ? {
-          latitude: (LOCATION_COORDINATES[fromLocation].lat + LOCATION_COORDINATES[toLocation].lat) / 2,
-          longitude: (LOCATION_COORDINATES[fromLocation].lng + LOCATION_COORDINATES[toLocation].lng) / 2,
-          latitudeDelta:
-            Math.abs(LOCATION_COORDINATES[fromLocation].lat - LOCATION_COORDINATES[toLocation].lat) + 0.05,
-          longitudeDelta:
-            Math.abs(LOCATION_COORDINATES[fromLocation].lng - LOCATION_COORDINATES[toLocation].lng) + 0.05,
-        }
-      : null;
+  const computedRegion = (() => {
+    const fromCoords = getStopCoordinateOnRoute(fromLocation);
+    const toCoords = getStopCoordinateOnRoute(toLocation);
+
+    if (!fromCoords || !toCoords) return null;
+
+    const latitude = (fromCoords.latitude + toCoords.latitude) / 2;
+    const longitude = (fromCoords.longitude + toCoords.longitude) / 2;
+    const latitudeDelta = Math.abs(fromCoords.latitude - toCoords.latitude) + 0.05;
+    const longitudeDelta = Math.abs(fromCoords.longitude - toCoords.longitude) + 0.05;
+
+    return { latitude, longitude, latitudeDelta, longitudeDelta };
+  })();
 
   const handleCalculateFare = async () => {
     if (!fromLocation || !toLocation) {
@@ -414,32 +439,32 @@ const fares = () => {
                   }}
                   {...(computedRegion ? { region: computedRegion } : {})}
                 >
-                  {(routeLineCoords.length > 1 ? routeLineCoords : fallbackPolyline).length > 1 && (
-                    <Polyline
-                      coordinates={routeLineCoords.length > 1 ? routeLineCoords : fallbackPolyline}
-                      strokeColor="#8D5C8A"
-                      strokeWidth={4}
-                      lineCap="round"
-                      lineJoin="round"
-                    />
-                  )}
-                  {fromLocation && LOCATION_COORDINATES[fromLocation] && (
+                  {fromLocation &&
+                    toLocation &&
+                    googleApiKey &&
+                    getStopCoordinateOnRoute(fromLocation) &&
+                    getStopCoordinateOnRoute(toLocation) && (
+                      <MapViewDirections
+                        origin={getStopCoordinateOnRoute(fromLocation)!}
+                        destination={getStopCoordinateOnRoute(toLocation)!}
+                        apikey={googleApiKey}
+                        strokeWidth={4}
+                        strokeColor="#8D5C8A"
+                        lineCap="round"
+                        lineJoin="round"
+                      />
+                    )}
+                  {fromLocation && getStopCoordinateOnRoute(fromLocation) && (
                     <Marker
-                      coordinate={{
-                        latitude: LOCATION_COORDINATES[fromLocation].lat,
-                        longitude: LOCATION_COORDINATES[fromLocation].lng,
-                      }}
+                      coordinate={getStopCoordinateOnRoute(fromLocation)!}
                       title="Start"
                       description={fromLocation}
                       pinColor="green"
                     />
                   )}
-                  {toLocation && LOCATION_COORDINATES[toLocation] && (
+                  {toLocation && getStopCoordinateOnRoute(toLocation) && (
                     <Marker
-                      coordinate={{
-                        latitude: LOCATION_COORDINATES[toLocation].lat,
-                        longitude: LOCATION_COORDINATES[toLocation].lng,
-                      }}
+                      coordinate={getStopCoordinateOnRoute(toLocation)!}
                       title="Destination"
                       description={toLocation}
                       pinColor="red"

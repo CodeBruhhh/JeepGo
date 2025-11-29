@@ -1,13 +1,71 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 
-import { citUToEmallRoute } from '@/assets/routes/citu-to-emall';
-import { route01CPrivateToColon } from '@/assets/routes/route-01c-private-to-colon';
 
+// Route Database - Each route has its unique stops
+const ROUTE_DATABASE: Record<
+  string,
+  {
+    code: string;
+    label: string;
+    stops: string[];
+  }
+> = {
+  '01C': {
+    code: '01C',
+    label: '01C - Private to Colon',
+    stops: [
+      'University of San Carlos South Campus',
+      'J Alcantara',
+      'Leon Kilat St',
+      'Metro Colon',
+      'Colonade Supermarket',
+      'Gaisano Main',
+      'University of Visayas',
+      'Colon Obelisk',
+      'Mabini St',
+      'Zulueta St',
+      'MJ Cuenca Ave',
+      'Tiburcio',
+      'Padilla St',
+      'B Benedicto St',
+      'General Maxilom Ave Ext',
+      'Pier 4',
+      'Pier 3',
+    ],
+  },
+  '01K': {
+    code: '01K',
+    label: '01K - Urgello to Parkmall',
+    stops: ['Urgello', 'Capitol', 'Ayala', 'Parkmall'],
+  },
+  '02B': {
+    code: '02B',
+    label: '02B - CSBT to Colon',
+    stops: ['CSBT', 'Fuente Osmeña', 'Colon'],
+  },
+  '03A': {
+    code: '03A',
+    label: '03A - Mabolo to Carbon',
+    stops: ['Mabolo', 'Ayala', 'Carbon'],
+  },
+  '06B': {
+    code: '06B',
+    label: '06B - Talamban to Colon',
+    stops: ['Talamban', 'Capitol', 'Colon'],
+  },
+  '69B': {
+    code: '69B',
+    label: '69B - CIT-U to E-mall',
+    stops: ['CIT University', 'Fuente Osmeña', 'Elizabeth Mall'],
+  },
+};
+
+// Fallback static coordinates for known locations
 const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   Parkmall: { lat: 10.3241, lng: 123.9229 },
   Urgello: { lat: 10.3001, lng: 123.889 },
@@ -26,6 +84,7 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   "Magellan's Cross": { lat: 10.2922, lng: 123.9033 },
   'Pier 1': { lat: 10.2942, lng: 123.9058 },
   'Pier 3': { lat: 10.3045, lng: 123.9119 },
+  'Pier 4': { lat: 10.3055, lng: 123.9125 },
   'Cebu Business Park': { lat: 10.318, lng: 123.9059 },
   'SM City Cebu': { lat: 10.3111, lng: 123.918 },
   'Banilad Town Center': { lat: 10.351, lng: 123.9131 },
@@ -34,128 +93,66 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'Rizal Museum': { lat: 10.2933, lng: 123.9027 },
   'Basilica Minore': { lat: 10.2928, lng: 123.9023 },
   'E-Mall Entrance': { lat: 10.2978, lng: 123.9035 },
+  'University of San Carlos South Campus': { lat: 10.2986, lng: 123.8999 },
+  'J Alcantara': { lat: 10.299, lng: 123.8995 },
+  'Leon Kilat St': { lat: 10.3005, lng: 123.9005 },
+  'Metro Colon': { lat: 10.297, lng: 123.903 },
+  'Colonade Supermarket': { lat: 10.2965, lng: 123.9032 },
+  'Gaisano Main': { lat: 10.296, lng: 123.9035 },
+  'University of Visayas': { lat: 10.2955, lng: 123.9038 },
+  'Colon Obelisk': { lat: 10.2969, lng: 123.9036 },
+  'Mabini St': { lat: 10.2975, lng: 123.904 },
+  'Zulueta St': { lat: 10.298, lng: 123.9045 },
+  'MJ Cuenca Ave': { lat: 10.2985, lng: 123.905 },
+  'Tiburcio': { lat: 10.299, lng: 123.9055 },
+  'Padilla St': { lat: 10.2995, lng: 123.906 },
+  'B Benedicto St': { lat: 10.3, lng: 123.9065 },
+  'General Maxilom Ave Ext': { lat: 10.3005, lng: 123.907 },
 };
 
-const geoJsonLineToPolyline = (geoJson: any) => {
-  const lineString = geoJson?.features?.find((feature: any) => feature.geometry?.type === 'LineString');
-  if (!lineString) return [];
-
-  return lineString.geometry.coordinates.map((coord: number[]) => ({
-    latitude: coord[1],
-    longitude: coord[0],
-  }));
-};
-
-const ROUTE_OPTIONS = [
-  {
-    code: '01C',
-    label: '01C - Private to Colon',
-    stops: [
-      'USC Private',
-      'Elizabeth Mall',
-      'CIT University',
-      'Urgello',
-      'Fuente Osmeña',
-      'Capitol',
-      'Cebu City Hall',
-      "Magellan's Cross",
-      'Colon',
-      'Pier 1',
-    ],
-    polyline: geoJsonLineToPolyline(route01CPrivateToColon),
-  },
-  {
-    code: '01K',
-    label: '01K - Urgello to Parkmall',
-    stops: [
-      'Urgello',
-      'CIT University',
-      'USC Private',
-      'Fuente Osmeña',
-      'Ayala',
-      'Cebu Business Park',
-      'SM City Cebu',
-      'Mabolo',
-      'Banilad Town Center',
-      'Parkmall',
-    ],
-    polyline: [
-      { latitude: 10.3001, longitude: 123.889 },
-      { latitude: 10.311, longitude: 123.896 },
-      { latitude: 10.3187, longitude: 123.9051 },
-      { latitude: 10.3241, longitude: 123.9229 },
-    ],
-  },
-  {
-    code: '02B',
-    label: '02B - CSBT to Colon',
-    stops: [
-      'CSBT',
-      'Elizabeth Mall',
-      'CIT University',
-      'Urgello',
-      'Fuente Osmeña',
-      'Cebu City Hall',
-      "Magellan's Cross",
-      'Basilica Minore',
-      'Colon',
-      'Pier 3',
-    ],
-  },
-  {
-    code: '03A',
-    label: '03A - Mabolo to Carbon',
-    stops: [
-      'Mabolo',
-      'SM City Cebu',
-      'Ayala',
-      'Cebu Business Park',
-      'Fuente Osmeña',
-      'Cebu City Hall',
-      'Rizal Museum',
-      'Basilica Minore',
-      'Carbon',
-      'Pier 1',
-    ],
-  },
-  {
-    code: '06B',
-    label: '06B - Talamban to Colon',
-    stops: [
-      'Talamban',
-      'Talamban Proper',
-      'Banilad Town Center',
-      'Cebu IT Park',
-      'Ayala',
-      'Fuente Osmeña',
-      'Capitol',
-      'Cebu City Hall',
-      'Colon',
-      'Pier 3',
-    ],
-  },
-  {
-    code: '69B',
-    label: '69B - CIT-U to E-mall',
-    stops: [
-      'CIT University',
-      'Urgello',
-      'USC Private',
-      'Fuente Osmeña',
-      'Capitol',
-      'Cebu City Hall',
-      "Magellan's Cross",
-      'Carbon',
-      'Elizabeth Mall',
-      'E-Mall Entrance',
-    ],
-    polyline: geoJsonLineToPolyline(citUToEmallRoute),
-  },
-];
-
-const FILTER_OPTIONS = ['All Stops (Manual)', ...ROUTE_OPTIONS.map((route) => route.label)];
-const DEFAULT_STOPS = Object.keys(LOCATION_COORDINATES);
+const FILTER_OPTIONS = ['All Stops (Manual)', ...Object.values(ROUTE_DATABASE).map((route) => route.label)];
 const PASSENGER_TYPES = ['Regular', 'Student', 'Senior', 'PWD'];
+
+// Geocoding cache to avoid repeated API calls
+const geocodeCache: Record<string, { lat: number; lng: number }> = {};
+
+// Geocode a location name using Google Geocoding API
+const geocodeLocation = async (
+  locationName: string,
+  apiKey: string,
+): Promise<{ lat: number; lng: number } | null> => {
+  // Check cache first
+  if (geocodeCache[locationName]) {
+    return geocodeCache[locationName];
+  }
+
+  // Check fallback static coordinates
+  if (LOCATION_COORDINATES[locationName]) {
+    geocodeCache[locationName] = LOCATION_COORDINATES[locationName];
+    return LOCATION_COORDINATES[locationName];
+  }
+
+  try {
+    // Add "Cebu City, Philippines" to improve accuracy
+    const query = `${locationName}, Cebu City, Philippines`;
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${apiKey}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results && data.results.length > 0) {
+      const location = data.results[0].geometry.location;
+      const coords = { lat: location.lat, lng: location.lng };
+      geocodeCache[locationName] = coords;
+      return coords;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return null;
+  }
+};
 
 const fares = () => {
   const [fromLocation, setFromLocation] = useState('');
@@ -166,41 +163,62 @@ const fares = () => {
   const [filterDestination, setFilterDestination] = useState('');
   const [isCalculating, setIsCalculating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isGeocoding, setIsGeocoding] = useState(false);
   
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker] = useState(false);
   const [showPassengerPicker, setShowPassengerPicker] = useState(false);
   const [showFilterPicker, setShowFilterPicker] = useState(false);
   const [showMap, setShowMap] = useState(false);
-  const [availableStops, setAvailableStops] = useState(DEFAULT_STOPS);
-  const [routeLineCoords, setRouteLineCoords] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [availableStops, setAvailableStops] = useState<string[]>([]);
+  const [fromSearchQuery, setFromSearchQuery] = useState('');
+  const [toSearchQuery, setToSearchQuery] = useState('');
+
+  const googleApiKey =
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+    (Constants?.expoConfig?.extra as { googleMapsApiKey?: string })?.googleMapsApiKey ||
+    '';
 
   const fareMatrix = {
     Regular: { baseFare: 13, succeedingRate: 1.8 },
     Discounted: { baseFare: 9.6, succeedingRate: 1.44 },
   };
 
-  const fetchDistanceFromGoogle = async (origin: string, destination: string) => {
-    const apiKey =
-      process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
-      (Constants?.expoConfig?.extra as { googleMapsApiKey?: string })?.googleMapsApiKey;
+  // Get coordinates for a stop (with geocoding if needed)
+  const getStopCoordinates = useCallback(
+    async (stopName: string): Promise<{ lat: number; lng: number } | null> => {
+      if (!stopName || !googleApiKey) return null;
 
-    if (!apiKey) {
+      // Check cache and static coordinates first
+      if (geocodeCache[stopName]) return geocodeCache[stopName];
+      if (LOCATION_COORDINATES[stopName]) {
+        geocodeCache[stopName] = LOCATION_COORDINATES[stopName];
+        return LOCATION_COORDINATES[stopName];
+      }
+
+      // Geocode if not found
+      return await geocodeLocation(stopName, googleApiKey);
+    },
+    [googleApiKey],
+  );
+
+  const fetchDistanceFromGoogle = async (origin: string, destination: string) => {
+    if (!googleApiKey) {
       throw new Error('Missing Google Maps API key. Set EXPO_PUBLIC_GOOGLE_MAPS_API_KEY in your env file.');
     }
 
-    const originCoords = LOCATION_COORDINATES[origin];
-    const destinationCoords = LOCATION_COORDINATES[destination];
+    const originCoords = await getStopCoordinates(origin);
+    const destinationCoords = await getStopCoordinates(destination);
 
     if (!originCoords || !destinationCoords) {
-      throw new Error('Unknown location coordinates');
+      throw new Error('Could not find coordinates for selected locations. Please try again.');
     }
 
     const originParam = `${originCoords.lat},${originCoords.lng}`;
     const destinationParam = `${destinationCoords.lat},${destinationCoords.lng}`;
     const url = `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${encodeURIComponent(
       originParam,
-    )}&destinations=${encodeURIComponent(destinationParam)}&key=${apiKey}`;
+    )}&destinations=${encodeURIComponent(destinationParam)}&key=${googleApiKey}`;
 
     const response = await fetch(url);
     const data = await response.json();
@@ -228,81 +246,84 @@ const fares = () => {
     return rates.baseFare + excessKm * rates.succeedingRate;
   };
 
-  const fallbackPolyline = useMemo(
-    () =>
-      availableStops
-        .map((stop) => LOCATION_COORDINATES[stop])
-        .filter(Boolean)
-        .map((coords) => ({
-          latitude: coords!.lat,
-          longitude: coords!.lng,
-        })),
-    [availableStops],
-  );
-
   type LatLngPoint = { latitude: number; longitude: number };
 
-  const getStopCoordinateOnRoute = (stopName: string): LatLngPoint | null => {
-    const base = LOCATION_COORDINATES[stopName];
-    const baseCoords: LatLngPoint | null = base ? { latitude: base.lat, longitude: base.lng } : null;
-    if (!stopName || (!routeLineCoords.length && !baseCoords)) return null;
+  // Get coordinates for map markers (synchronous version using cache)
+  const getStopCoordinateForMap = useCallback(
+    (stopName: string): LatLngPoint | null => {
+      if (!stopName) return null;
 
-    // When a specific jeepney route is active, snap markers to that route line
-    if (routeLineCoords.length > 1 && availableStops.includes(stopName)) {
-      const index = availableStops.indexOf(stopName);
-      const t =
-        availableStops.length <= 1 ? 0 : index / Math.max(availableStops.length - 1, 1);
-      const routeIndex = Math.round(t * (routeLineCoords.length - 1));
-      return routeLineCoords[routeIndex] || baseCoords || null;
-    }
+      // Check cache first
+      const cached = geocodeCache[stopName];
+      if (cached) {
+        return { latitude: cached.lat, longitude: cached.lng };
+      }
 
-    // Manual mode: use static coordinates
-    return baseCoords || null;
-  };
+      // Check static coordinates
+      const staticCoords = LOCATION_COORDINATES[stopName];
+      if (staticCoords) {
+        geocodeCache[stopName] = staticCoords;
+        return { latitude: staticCoords.lat, longitude: staticCoords.lng };
+      }
 
-  const googleApiKey =
-    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
-    (Constants?.expoConfig?.extra as { googleMapsApiKey?: string })?.googleMapsApiKey ||
-    '';
+      return null;
+    },
+    [],
+  );
+
+  // Geocode stops when route is selected
+  useEffect(() => {
+    const geocodeRouteStops = async () => {
+      if (!filterDestination || !googleApiKey || availableStops.length === 0) return;
+
+      setIsGeocoding(true);
+      try {
+        // Geocode all stops in the current route
+        await Promise.all(
+          availableStops.map(async (stop) => {
+            if (!geocodeCache[stop] && !LOCATION_COORDINATES[stop]) {
+              await geocodeLocation(stop, googleApiKey);
+            }
+          }),
+        );
+      } catch (error) {
+        console.error('Error geocoding route stops:', error);
+      } finally {
+        setIsGeocoding(false);
+      }
+    };
+
+    geocodeRouteStops();
+  }, [filterDestination, availableStops, googleApiKey]);
 
   const handleFilterSelection = (value: string) => {
     setFilterDestination(value === 'All Stops (Manual)' ? '' : value);
+    setFromSearchQuery('');
+    setToSearchQuery('');
 
     if (value === 'All Stops (Manual)') {
-      setAvailableStops(DEFAULT_STOPS);
+      setAvailableStops([]);
       setFromLocation('');
       setToLocation('');
       setDistanceKm(null);
       setCalculatedFare('');
-      setRouteLineCoords([]);
       return;
     }
 
-    const matchedRoute = ROUTE_OPTIONS.find((route) => route.label === value);
+    // Find route in database
+    const matchedRoute = Object.values(ROUTE_DATABASE).find((route) => route.label === value);
     if (matchedRoute) {
       setAvailableStops(matchedRoute.stops);
-      setFromLocation(matchedRoute.stops[0]);
-      setToLocation(matchedRoute.stops[matchedRoute.stops.length - 1]);
+      setFromLocation(matchedRoute.stops[0] || '');
+      setToLocation(matchedRoute.stops[matchedRoute.stops.length - 1] || '');
       setDistanceKm(null);
       setCalculatedFare('');
-      if (matchedRoute.polyline && matchedRoute.polyline.length > 1) {
-        setRouteLineCoords(matchedRoute.polyline);
-      } else {
-        const line = matchedRoute.stops
-          .map((stop) => LOCATION_COORDINATES[stop])
-          .filter(Boolean)
-          .map((coords) => ({
-            latitude: coords!.lat,
-            longitude: coords!.lng,
-          }));
-        setRouteLineCoords(line);
-      }
     }
   };
 
-  const computedRegion = (() => {
-    const fromCoords = getStopCoordinateOnRoute(fromLocation);
-    const toCoords = getStopCoordinateOnRoute(toLocation);
+  const computedRegion = useMemo(() => {
+    const fromCoords = getStopCoordinateForMap(fromLocation);
+    const toCoords = getStopCoordinateForMap(toLocation);
 
     if (!fromCoords || !toCoords) return null;
 
@@ -312,7 +333,7 @@ const fares = () => {
     const longitudeDelta = Math.abs(fromCoords.longitude - toCoords.longitude) + 0.05;
 
     return { latitude, longitude, latitudeDelta, longitudeDelta };
-  })();
+  }, [fromLocation, toLocation, getStopCoordinateForMap]);
 
   const handleCalculateFare = async () => {
     if (!fromLocation || !toLocation) {
@@ -349,7 +370,9 @@ const fares = () => {
     options, 
     selectedValue, 
     onSelect, 
-    title 
+    title,
+    searchQuery,
+    onSearchChange,
   }: {
     visible: boolean;
     onClose: () => void;
@@ -357,44 +380,70 @@ const fares = () => {
     selectedValue: string;
     onSelect: (value: string) => void;
     title: string;
-  }) => (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View className="flex-1 justify-end bg-black/50">
-        <View className="bg-white rounded-t-3xl p-4 max-h-[50%]">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-lg font-bold text-dark">{title}</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#000" />
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={options}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => {
-                  onSelect(item);
-                  onClose();
-                }}
-                className={`py-4 px-4 border-b border-gray-200 ${
-                  selectedValue === item ? 'bg-primary/10' : ''
-                }`}
-              >
-                <Text className={`text-base ${selectedValue === item ? 'text-primary font-bold' : 'text-dark'}`}>
-                  {item}
-                </Text>
+    searchQuery?: string;
+    onSearchChange?: (query: string) => void;
+  }) => {
+    const filteredOptions = useMemo(() => {
+      if (!searchQuery) return options;
+      const query = searchQuery.toLowerCase();
+      return options.filter((option) => option.toLowerCase().includes(query));
+    }, [options, searchQuery]);
+
+    return (
+      <Modal
+        visible={visible}
+        transparent
+        animationType="slide"
+        onRequestClose={onClose}
+      >
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="bg-white rounded-t-3xl p-4 max-h-[70%]">
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-lg font-bold text-dark">{title}</Text>
+              <TouchableOpacity onPress={onClose}>
+                <Ionicons name="close" size={24} color="#000" />
               </TouchableOpacity>
+            </View>
+            {onSearchChange && (
+              <View className="mb-4">
+                <TextInput
+                  className="bg-highlight border border-gray-300 rounded-lg px-4 py-3 text-dark"
+                  placeholder="Search stops..."
+                  placeholderTextColor="#9CA3AF"
+                  value={searchQuery || ''}
+                  onChangeText={onSearchChange}
+                />
+              </View>
             )}
-          />
+            <FlatList
+              data={filteredOptions}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => {
+                    onSelect(item);
+                    onClose();
+                  }}
+                  className={`py-4 px-4 border-b border-gray-200 ${
+                    selectedValue === item ? 'bg-primary/10' : ''
+                  }`}
+                >
+                  <Text className={`text-base ${selectedValue === item ? 'text-primary font-bold' : 'text-dark'}`}>
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View className="py-8 items-center">
+                  <Text className="text-gray-500">No stops found</Text>
+                </View>
+              }
+            />
+          </View>
         </View>
-      </View>
-    </Modal>
-  );
+      </Modal>
+    );
+  };
 
   return (
     <ScrollView className="flex-1 bg-secondary" contentContainerStyle={{ paddingBottom: 120 }}>
@@ -442,11 +491,11 @@ const fares = () => {
                   {fromLocation &&
                     toLocation &&
                     googleApiKey &&
-                    getStopCoordinateOnRoute(fromLocation) &&
-                    getStopCoordinateOnRoute(toLocation) && (
+                    getStopCoordinateForMap(fromLocation) &&
+                    getStopCoordinateForMap(toLocation) && (
                       <MapViewDirections
-                        origin={getStopCoordinateOnRoute(fromLocation)!}
-                        destination={getStopCoordinateOnRoute(toLocation)!}
+                        origin={getStopCoordinateForMap(fromLocation)!}
+                        destination={getStopCoordinateForMap(toLocation)!}
                         apikey={googleApiKey}
                         strokeWidth={4}
                         strokeColor="#8D5C8A"
@@ -454,17 +503,17 @@ const fares = () => {
                         lineJoin="round"
                       />
                     )}
-                  {fromLocation && getStopCoordinateOnRoute(fromLocation) && (
+                  {fromLocation && getStopCoordinateForMap(fromLocation) && (
                     <Marker
-                      coordinate={getStopCoordinateOnRoute(fromLocation)!}
+                      coordinate={getStopCoordinateForMap(fromLocation)!}
                       title="Start"
                       description={fromLocation}
                       pinColor="green"
                     />
                   )}
-                  {toLocation && getStopCoordinateOnRoute(toLocation) && (
+                  {toLocation && getStopCoordinateForMap(toLocation) && (
                     <Marker
-                      coordinate={getStopCoordinateOnRoute(toLocation)!}
+                      coordinate={getStopCoordinateForMap(toLocation)!}
                       title="Destination"
                       description={toLocation}
                       pinColor="red"
@@ -568,20 +617,30 @@ const fares = () => {
 
       <PickerModal
         visible={showFromPicker}
-        onClose={() => setShowFromPicker(false)}
+        onClose={() => {
+          setShowFromPicker(false);
+          setFromSearchQuery('');
+        }}
         options={availableStops}
         selectedValue={fromLocation}
         onSelect={setFromLocation}
         title="Select Starting Point"
+        searchQuery={fromSearchQuery}
+        onSearchChange={setFromSearchQuery}
       />
 
       <PickerModal
         visible={showToPicker}
-        onClose={() => setShowToPicker(false)}
+        onClose={() => {
+          setShowToPicker(false);
+          setToSearchQuery('');
+        }}
         options={availableStops}
         selectedValue={toLocation}
         onSelect={setToLocation}
         title="Select Destination"
+        searchQuery={toSearchQuery}
+        onSearchChange={setToSearchQuery}
       />
 
       <PickerModal

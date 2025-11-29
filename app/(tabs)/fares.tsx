@@ -2,42 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
+
+import route01C, { RouteDefinition } from '@/Route Codes/01C';
 
 
 // Route Database - Each route has its unique stops
-const ROUTE_DATABASE: Record<
-  string,
-  {
-    code: string;
-    label: string;
-    stops: string[];
-  }
-> = {
-  '01C': {
-    code: '01C',
-    label: '01C - Private to Colon',
-    stops: [
-      'University of San Carlos South Campus',
-      'J Alcantara',
-      'Leon Kilat St',
-      'Metro Colon',
-      'Colonade Supermarket',
-      'Gaisano Main',
-      'University of Visayas',
-      'Colon Obelisk',
-      'Mabini St',
-      'Zulueta St',
-      'MJ Cuenca Ave',
-      'Tiburcio',
-      'Padilla St',
-      'B Benedicto St',
-      'General Maxilom Ave Ext',
-      'Pier 4',
-      'Pier 3',
-    ],
-  },
+const ROUTE_DATABASE: Record<string, RouteDefinition> = {
+  [route01C.code]: route01C,
   '01K': {
     code: '01K',
     label: '01K - Urgello to Parkmall',
@@ -83,8 +56,8 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'Cebu City Hall': { lat: 10.2931, lng: 123.9021 },
   "Magellan's Cross": { lat: 10.2922, lng: 123.9033 },
   'Pier 1': { lat: 10.2942, lng: 123.9058 },
-  'Pier 3': { lat: 10.3045, lng: 123.9119 },
-  'Pier 4': { lat: 10.3055, lng: 123.9125 },
+  'Pier 4': { lat: 10.30191, lng: 123.90904 }, // Before Pier 3 on route
+  'Pier 3': { lat: 10.29849, lng: 123.90843 }, // End of 01C route from KML
   'Cebu Business Park': { lat: 10.318, lng: 123.9059 },
   'SM City Cebu': { lat: 10.3111, lng: 123.918 },
   'Banilad Town Center': { lat: 10.351, lng: 123.9131 },
@@ -93,21 +66,23 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'Rizal Museum': { lat: 10.2933, lng: 123.9027 },
   'Basilica Minore': { lat: 10.2928, lng: 123.9023 },
   'E-Mall Entrance': { lat: 10.2978, lng: 123.9035 },
-  'University of San Carlos South Campus': { lat: 10.2986, lng: 123.8999 },
-  'J Alcantara': { lat: 10.299, lng: 123.8995 },
-  'Leon Kilat St': { lat: 10.3005, lng: 123.9005 },
-  'Metro Colon': { lat: 10.297, lng: 123.903 },
-  'Colonade Supermarket': { lat: 10.2965, lng: 123.9032 },
-  'Gaisano Main': { lat: 10.296, lng: 123.9035 },
-  'University of Visayas': { lat: 10.2955, lng: 123.9038 },
-  'Colon Obelisk': { lat: 10.2969, lng: 123.9036 },
-  'Mabini St': { lat: 10.2975, lng: 123.904 },
-  'Zulueta St': { lat: 10.298, lng: 123.9045 },
-  'MJ Cuenca Ave': { lat: 10.2985, lng: 123.905 },
-  'Tiburcio': { lat: 10.299, lng: 123.9055 },
-  'Padilla St': { lat: 10.2995, lng: 123.906 },
-  'B Benedicto St': { lat: 10.3, lng: 123.9065 },
-  'General Maxilom Ave Ext': { lat: 10.3005, lng: 123.907 },
+  // 01C Route stops - coordinates based on KML route path
+  'University of San Carlos South Campus': { lat: 10.30032, lng: 123.88673 }, // Start of route from KML
+  'J Alcantara': { lat: 10.29948, lng: 123.88899 }, // Along route path
+  'Leon Kilat St': { lat: 10.29946, lng: 123.88902 }, // Along route path
+  'Metro Colon': { lat: 10.29794, lng: 123.90375 }, // Near Colon area
+  'Colonade Supermarket': { lat: 10.29794, lng: 123.90375 }, // Colon area
+  'Gaisano Main': { lat: 10.2978, lng: 123.90204 }, // Colon area
+  'University of Visayas': { lat: 10.2978, lng: 123.90204 }, // Colon area
+  'Colon Obelisk': { lat: 10.29794, lng: 123.90375 }, // Colon area
+  'Mabini St': { lat: 10.29879, lng: 123.90383 }, // Along route
+  'Zulueta St': { lat: 10.29852, lng: 123.90539 }, // Along route
+  'MJ Cuenca Ave': { lat: 10.29836, lng: 123.90609 }, // Along route
+  'Tiburcio': { lat: 10.3003, lng: 123.90646 }, // Along route
+  'Padilla St': { lat: 10.30131, lng: 123.90659 }, // Along route
+  'B Benedicto St': { lat: 10.30189, lng: 123.90661 }, // Along route
+  'General Maxilom Ave Ext': { lat: 10.30196, lng: 123.90736 }, // Along route
+  'Pier 3': { lat: 10.29849, lng: 123.90843 }, // End of route from KML
 };
 
 const FILTER_OPTIONS = ['All Stops (Manual)', ...Object.values(ROUTE_DATABASE).map((route) => route.label)];
@@ -184,22 +159,49 @@ const fares = () => {
     Discounted: { baseFare: 9.6, succeedingRate: 1.44 },
   };
 
-  // Get coordinates for a stop (with geocoding if needed)
+  // Get coordinates for a stop (with geocoding if needed) - for distance calculation
   const getStopCoordinates = useCallback(
     async (stopName: string): Promise<{ lat: number; lng: number } | null> => {
-      if (!stopName || !googleApiKey) return null;
+      if (!stopName) return null;
 
-      // Check cache and static coordinates first
+      // If a route is selected and has KML coordinates, use route-based positioning
+      if (filterDestination && availableStops.length > 0) {
+        const selectedRoute = Object.values(ROUTE_DATABASE).find((r) => r.label === filterDestination);
+        
+        if (selectedRoute?.coordinates && selectedRoute.coordinates.length > 0) {
+          const stopIndex = availableStops.indexOf(stopName);
+          
+          if (stopIndex >= 0) {
+            // Interpolate position along the route based on stop order
+            const totalStops = availableStops.length;
+            const progress = totalStops > 1 ? stopIndex / (totalStops - 1) : 0;
+            const routeIndex = Math.round(progress * (selectedRoute.coordinates.length - 1));
+            const routeCoord = selectedRoute.coordinates[routeIndex];
+            
+            if (routeCoord) {
+              const coords = { lat: routeCoord.latitude, lng: routeCoord.longitude };
+              geocodeCache[stopName] = coords;
+              return coords;
+            }
+          }
+        }
+      }
+
+      // Fallback: Check cache and static coordinates
       if (geocodeCache[stopName]) return geocodeCache[stopName];
       if (LOCATION_COORDINATES[stopName]) {
         geocodeCache[stopName] = LOCATION_COORDINATES[stopName];
         return LOCATION_COORDINATES[stopName];
       }
 
-      // Geocode if not found
-      return await geocodeLocation(stopName, googleApiKey);
+      // Last resort: Geocode if API key available
+      if (googleApiKey) {
+        return await geocodeLocation(stopName, googleApiKey);
+      }
+
+      return null;
     },
-    [googleApiKey],
+    [filterDestination, availableStops, googleApiKey],
   );
 
   const fetchDistanceFromGoogle = async (origin: string, destination: string) => {
@@ -248,18 +250,41 @@ const fares = () => {
 
   type LatLngPoint = { latitude: number; longitude: number };
 
-  // Get coordinates for map markers (synchronous version using cache)
+  // Get coordinates for map markers - uses KML route coordinates when available
   const getStopCoordinateForMap = useCallback(
     (stopName: string): LatLngPoint | null => {
       if (!stopName) return null;
 
-      // Check cache first
+      // If a route is selected and has KML coordinates, position stops along the route
+      if (filterDestination && availableStops.length > 0) {
+        const selectedRoute = Object.values(ROUTE_DATABASE).find((r) => r.label === filterDestination);
+        
+        if (selectedRoute?.coordinates && selectedRoute.coordinates.length > 0) {
+          const stopIndex = availableStops.indexOf(stopName);
+          
+          if (stopIndex >= 0) {
+            // Interpolate position along the route based on stop order
+            const totalStops = availableStops.length;
+            const progress = totalStops > 1 ? stopIndex / (totalStops - 1) : 0;
+            const routeIndex = Math.round(progress * (selectedRoute.coordinates.length - 1));
+            const routeCoord = selectedRoute.coordinates[routeIndex];
+            
+            if (routeCoord) {
+              // Cache this coordinate
+              geocodeCache[stopName] = { lat: routeCoord.latitude, lng: routeCoord.longitude };
+              return routeCoord;
+            }
+          }
+        }
+      }
+
+      // Fallback: Check cache first
       const cached = geocodeCache[stopName];
       if (cached) {
         return { latitude: cached.lat, longitude: cached.lng };
       }
 
-      // Check static coordinates
+      // Fallback: Check static coordinates
       const staticCoords = LOCATION_COORDINATES[stopName];
       if (staticCoords) {
         geocodeCache[stopName] = staticCoords;
@@ -268,7 +293,7 @@ const fares = () => {
 
       return null;
     },
-    [],
+    [filterDestination, availableStops],
   );
 
   // Geocode stops when route is selected
@@ -488,21 +513,48 @@ const fares = () => {
                   }}
                   {...(computedRegion ? { region: computedRegion } : {})}
                 >
-                  {fromLocation &&
-                    toLocation &&
-                    googleApiKey &&
-                    getStopCoordinateForMap(fromLocation) &&
-                    getStopCoordinateForMap(toLocation) && (
-                      <MapViewDirections
-                        origin={getStopCoordinateForMap(fromLocation)!}
-                        destination={getStopCoordinateForMap(toLocation)!}
-                        apikey={googleApiKey}
-                        strokeWidth={4}
-                        strokeColor="#8D5C8A"
-                        lineCap="round"
-                        lineJoin="round"
-                      />
-                    )}
+                  {/* Render KML route if available */}
+                  {(() => {
+                    const selectedRoute = filterDestination
+                      ? Object.values(ROUTE_DATABASE).find((r) => r.label === filterDestination)
+                      : null;
+
+                    if (selectedRoute?.coordinates && selectedRoute.coordinates.length > 0) {
+                      // Use KML coordinates for accurate route display
+                      return (
+                        <Polyline
+                          coordinates={selectedRoute.coordinates}
+                          strokeWidth={4}
+                          strokeColor="#8D5C8A"
+                          lineCap="round"
+                          lineJoin="round"
+                        />
+                      );
+                    }
+
+                    // Fallback to MapViewDirections if no KML coordinates
+                    if (
+                      fromLocation &&
+                      toLocation &&
+                      googleApiKey &&
+                      getStopCoordinateForMap(fromLocation) &&
+                      getStopCoordinateForMap(toLocation)
+                    ) {
+                      return (
+                        <MapViewDirections
+                          origin={getStopCoordinateForMap(fromLocation)!}
+                          destination={getStopCoordinateForMap(toLocation)!}
+                          apikey={googleApiKey}
+                          strokeWidth={4}
+                          strokeColor="#8D5C8A"
+                          lineCap="round"
+                          lineJoin="round"
+                        />
+                      );
+                    }
+
+                    return null;
+                  })()}
                   {fromLocation && getStopCoordinateForMap(fromLocation) && (
                     <Marker
                       coordinate={getStopCoordinateForMap(fromLocation)!}

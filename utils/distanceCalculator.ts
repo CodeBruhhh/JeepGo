@@ -28,8 +28,9 @@ export const haversineDistance = (
 };
 
 /**
- * Fetch distance using Google Directions API
- * Returns the actual driving distance along the route
+ * Fetch distance using Google Directions API with transit mode
+ * Returns the actual transit (bus/jeep) distance along the route
+ * Mode set to 'transit' for jeep/bus routing (closest to actual jeepney routes)
  * @param origin Starting location (latitude,longitude)
  * @param destination Ending location (latitude,longitude)
  * @param apiKey Google Maps API Key
@@ -47,7 +48,7 @@ export const fetchDistanceFromDirectionsAPI = async (
   try {
     const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(
       origin,
-    )}&destination=${encodeURIComponent(destination)}&key=${apiKey}`;
+    )}&destination=${encodeURIComponent(destination)}&mode=transit&key=${apiKey}`;
 
     const response = await fetch(url);
     const data = await response.json();

@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Modal, Text, TouchableOpacity, View } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 export type SelectedLocation = {
   name: string;

@@ -6,27 +6,30 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 
 import route01C, { RouteDefinition } from '@/Route Codes/01C';
+import route01K from '@/Route Codes/01K';
+import route02B from '@/Route Codes/02B';
+import route03A from '@/Route Codes/03A';
+import route03B from '@/Route Codes/03B';
+import route03L from '@/Route Codes/03L';
+import route03Q from '@/Route Codes/03Q';
+import route04B from '@/Route Codes/04B';
+import route04H from '@/Route Codes/04H';
+import route04I from '@/Route Codes/04I';
 import { fetchDistanceFromDirectionsAPI } from '@/utils/distanceCalculator';
 
 
 // Route Database - Each route has its unique stops
 const ROUTE_DATABASE: Record<string, RouteDefinition> = {
   [route01C.code]: route01C,
-  '01K': {
-    code: '01K',
-    label: '01K - Urgello to Parkmall',
-    stops: ['Urgello', 'Capitol', 'Ayala', 'Parkmall'],
-  },
-  '02B': {
-    code: '02B',
-    label: '02B - CSBT to Colon',
-    stops: ['CSBT', 'Fuente Osmeña', 'Colon'],
-  },
-  '03A': {
-    code: '03A',
-    label: '03A - Mabolo to Carbon',
-    stops: ['Mabolo', 'Ayala', 'Carbon'],
-  },
+  [route01K.code]: route01K,
+  [route02B.code]: route02B,
+  [route03A.code]: route03A,
+  [route03B.code]: route03B,
+  [route03L.code]: route03L,
+  [route03Q.code]: route03Q,
+  [route04B.code]: route04B,
+  [route04H.code]: route04H,
+  [route04I.code]: route04I,
   '06B': {
     code: '06B',
     label: '06B - Talamban to Colon',
@@ -41,7 +44,7 @@ const ROUTE_DATABASE: Record<string, RouteDefinition> = {
 
 // Fallback static coordinates for known locations
 const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
-  Parkmall: { lat: 10.3241, lng: 123.9229 },
+  Parkmall: { lat: 10.324514, lng: 123.9335724 },
   Urgello: { lat: 10.3001, lng: 123.889 },
   Capitol: { lat: 10.311, lng: 123.896 },
   Ayala: { lat: 10.3187, lng: 123.9051 },
@@ -51,26 +54,102 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   Carbon: { lat: 10.2945, lng: 123.9034 },
   CSBT: { lat: 10.3049, lng: 123.9005 },
   'CIT University': { lat: 10.2998, lng: 123.8893 },
-  'Elizabeth Mall': { lat: 10.2975, lng: 123.9038 },
+  'Elizabeth Mall': { lat: 10.2978296, lng: 123.8953167 },
   'USC Private': { lat: 10.2986, lng: 123.8999 },
   'Fuente Osmeña': { lat: 10.3104, lng: 123.8931 },
   'Cebu City Hall': { lat: 10.2931, lng: 123.9021 },
   "Magellan's Cross": { lat: 10.2922, lng: 123.9033 },
-  'Pier 1': { lat: 10.2942, lng: 123.9058 },
   'Cebu Business Park': { lat: 10.318, lng: 123.9059 },
-  'SM City Cebu': { lat: 10.3111, lng: 123.918 },
   'Banilad Town Center': { lat: 10.351, lng: 123.9131 },
   'Talamban Proper': { lat: 10.3618, lng: 123.915 },
   'Cebu IT Park': { lat: 10.3309, lng: 123.9043 },
   'Rizal Museum': { lat: 10.2933, lng: 123.9027 },
   'Basilica Minore': { lat: 10.2928, lng: 123.9023 },
   'E-Mall Entrance': { lat: 10.2978, lng: 123.9035 },
+  // 02B Route stops - exact coordinates from Google Maps URLs
+  'Cebu City Medical Center': { lat: 10.2975079, lng: 123.8916166 },
+  'Cebu South Bus Terminal': { lat: 10.2982638, lng: 123.8931472 },
+  'Metro Colon': { lat: 10.296236, lng: 123.898277 },
+  'Colonnade Supermarket': { lat: 10.2971613, lng: 123.8999591 },
+  'P. Burgos Street': { lat: 10.2956, lng: 123.903684 },
+  'Legazpi Exit': { lat: 10.294265, lng: 123.905022 },
+  'Pier 1': { lat: 10.2922153, lng: 123.9072976 },
+  'Pier 2': { lat: 10.2957117, lng: 123.9084482 },
+  'Pier 3': { lat: 10.298532, lng: 123.90839 },
+  // 03A Route stops - exact coordinates from Google Maps URLs
+  'F Cabahug St': { lat: 10.324763, lng: 123.9156696 },
+  'Sykes Asia': { lat: 10.325602, lng: 123.91982 },
+  'Citi Park': { lat: 10.3256491, lng: 123.9170895 },
+  'Sorroso International Hotel': { lat: 10.324454, lng: 123.915266 },
+  'Castle Peak Hotel': { lat: 10.3226077, lng: 123.9138739 },
+  'Pope John Paul II Ave': { lat: 10.3201198, lng: 123.9111212 },
+  'Camelita Monastery': { lat: 10.31834, lng: 123.912068 },
+  'St. Joseph Parish': { lat: 10.314917, lng: 123.914195 },
+  'The Persimmon': { lat: 10.3123922, lng: 123.911094 },
+  'Carreta Cemetery': { lat: 10.3105895, lng: 123.907011 },
+  'Imus Avenue': { lat: 10.307425, lng: 123.906192 },
+  'Cpils': { lat: 10.302646, lng: 123.906511 },
+  'Cebu Technological University': { lat: 10.2966572, lng: 123.9065091 },
+  'Vicente Gullas St': { lat: 10.2969085, lng: 123.9021698 },
+  'Legaspi St': { lat: 10.2955389, lng: 123.9017567 },
+  'Carbon Public Market': { lat: 10.291927, lng: 123.89943 },
+  // 04H Route stops - Plaza Housing to Carbon
+  'Cebu Veterans Drive': { lat: 10.3436859, lng: 123.8939261 },
+  'Marco Polo Hotel': { lat: 10.341463, lng: 123.896573 },
+  // 'JY Square Mall' already exists
+  // 'The Church of Christ of Latter Day Saints Temple' already exists
+  // 'Lahug Barangay Hall' already exists
+  // 'University of the Philippines Cebu' already exists
+  'Harolds Hotel Cebu': { lat: 10.3196171, lng: 123.8991125 },
+  // 'Escario Central Mall' already exists
+  // 'Cebu Provincial Capitol' already exists
+  // 'Cebu Doctors’ University Hospital' already exists
+  // 'Fuente Osmeña Circle' already exists
+  // 'Abellana Sport Complex' already exists
+  'GV Tower Hotel': { lat: 10.297579, lng: 123.897536 },
+  'University of Cebu - Main Campus': { lat: 10.2970477, lng: 123.896664 },
+  'Katipunan Lumber': { lat: 10.2966466, lng: 123.8988929 },
+  // 04B Route stops - Lahug to Carbon
+  'Stephenson St.': { lat: 10.333943, lng: 123.901493 },
+  'Salinas Drive': { lat: 10.330721, lng: 123.898829 },
+  'JY Square Mall': { lat: 10.330568, lng: 123.897796 },
+  'The Church of Christ of Latter Day Saints Temple': { lat: 10.327338, lng: 123.897705 },
+  'Lahug Barangay Hall': { lat: 10.3241, lng: 123.898424 },
+  'University of the Philippines Cebu': { lat: 10.3222907, lng: 123.8981953 },
+  'Gorordo Ave': { lat: 10.3205967, lng: 123.8991322 },
+  'Escario Central Mall': { lat: 10.317385, lng: 123.893985 },
+  'Cebu Provincial Capitol': { lat: 10.3168489, lng: 123.8906336 },
+  "Cebu Doctors’ University Hospital": { lat: 10.3144559, lng: 123.8920288 },
+  'University of San Carlos Main - Downtown Campus': { lat: 10.299449, lng: 123.8987921 },
+  'Cebu Metropolitan Cathedral': { lat: 10.2955765, lng: 123.9029952 },
+  'Sto. Niño Barangay Hall': { lat: 10.2950105, lng: 123.9028672 },
+  // 03Q Route stops (Ayala -> SM City)
+  'Ayala Center Cebu': { lat: 10.318237, lng: 123.9052295 },
+  'Landers Superstore Cebu': { lat: 10.3204806, lng: 123.9100897 },
+  'Juan Luna Avenue': { lat: 10.3175661, lng: 123.9126331 },
+  'SM City Cebu': { lat: 10.3114191, lng: 123.9178164 },
+  // 03B Route stops - exact coordinates from Google Maps URLs
+  'Sindulan St': { lat: 10.319353, lng: 123.915979 },
+  'University of San Carlos - North Campus': { lat: 10.3118001, lng: 123.901127 },
+  'Fooda Savers Mart': { lat: 10.3115467, lng: 123.9016289 },
+  'Horizons 101 Condominium': { lat: 10.3105301, lng: 123.8974315 },
+  'Mango Square Mall': { lat: 10.310299, lng: 123.895522 },
+  'Fuente Osmeña Circle': { lat: 10.3102031, lng: 123.8936769 },
+  'Crown Regency Hotel & Towers': { lat: 10.3080134, lng: 123.894077 },
+  'Abellana Sport Complex': { lat: 10.3008664, lng: 123.8952547 },
+  'Social Security System - Cebu Main Office': { lat: 10.2983988, lng: 123.8967585 },
+  'Robinsons Fuente': { lat: 10.3095317, lng: 123.8939535 },
+  // 03L Route stops - exact coordinates from Google Maps URLs
+  'P Cabantan': { lat: 10.322451, lng: 123.905229 },
+  'Waterfront Hotel': { lat: 10.3251762, lng: 123.9035573 },
+  'San Carlos Seminar Complex': { lat: 10.3221705, lng: 123.9097729 },
+  'Museo Sugbo': { lat: 10.303749, lng: 123.906227 },
+  'Tiburcio Padilla St': { lat: 10.3019728, lng: 123.9073451 },
+  'Cebu Technological University - Main Campus': { lat: 10.2966572, lng: 123.9065091 },
   // 01C Route stops - exact coordinates from Google Maps URLs
   'University of San Carlos South Campus': { lat: 10.300413, lng: 123.887984 },
   'J Alcantara': { lat: 10.2998482, lng: 123.8916874 },
   'Leon Kilat St': { lat: 10.2963913, lng: 123.8962662 },
-  'Metro Colon': { lat: 10.2960255, lng: 123.8983942 },
-  'Colonade Supermarket': { lat: 10.2971613, lng: 123.8999591 },
   'Gaisano Main': { lat: 10.2975525, lng: 123.9016732 },
   'University of Visayas': { lat: 10.2982613, lng: 123.9014808 },
   'Colon Obelisk': { lat: 10.2979797, lng: 123.9036644 },
@@ -81,7 +160,6 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'B Benedicto St': { lat: 10.30351, lng: 123.9094037 },
   'General Maxilom Ave Ext': { lat: 10.306426, lng: 123.910329 },
   'Pier 4': { lat: 10.303479, lng: 123.912758 },
-  'Pier 3': { lat: 10.298532, lng: 123.90839 },
 };
 
 const FILTER_OPTIONS = ['All Stops (Manual)', ...Object.values(ROUTE_DATABASE).map((route) => route.label)];

@@ -95,6 +95,7 @@ export const route01C: RouteDefinition = {
     'Zulueta St',
     'MJ Cuenca Ave',
     'Tiburcio',
+    'Elizabeth Mall',
     'B Benedicto St',
     'General Maxilom Ave Ext',
     'Pier 4',

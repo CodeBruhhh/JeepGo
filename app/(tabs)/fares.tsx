@@ -6,6 +6,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 
 import route01C, { RouteDefinition } from '@/Route Codes/01C';
+import { fetchDistanceFromDirectionsAPI } from '@/utils/distanceCalculator';
 
 
 // Route Database - Each route has its unique stops
@@ -56,8 +57,6 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'Cebu City Hall': { lat: 10.2931, lng: 123.9021 },
   "Magellan's Cross": { lat: 10.2922, lng: 123.9033 },
   'Pier 1': { lat: 10.2942, lng: 123.9058 },
-  'Pier 4': { lat: 10.30191, lng: 123.90904 }, // Before Pier 3 on route
-  'Pier 3': { lat: 10.29849, lng: 123.90843 }, // End of 01C route from KML
   'Cebu Business Park': { lat: 10.318, lng: 123.9059 },
   'SM City Cebu': { lat: 10.3111, lng: 123.918 },
   'Banilad Town Center': { lat: 10.351, lng: 123.9131 },
@@ -66,23 +65,23 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'Rizal Museum': { lat: 10.2933, lng: 123.9027 },
   'Basilica Minore': { lat: 10.2928, lng: 123.9023 },
   'E-Mall Entrance': { lat: 10.2978, lng: 123.9035 },
-  // 01C Route stops - coordinates based on KML route path
-  'University of San Carlos South Campus': { lat: 10.30032, lng: 123.88673 }, // Start of route from KML
-  'J Alcantara': { lat: 10.29948, lng: 123.88899 }, // Along route path
-  'Leon Kilat St': { lat: 10.29946, lng: 123.88902 }, // Along route path
-  'Metro Colon': { lat: 10.29794, lng: 123.90375 }, // Near Colon area
-  'Colonade Supermarket': { lat: 10.29794, lng: 123.90375 }, // Colon area
-  'Gaisano Main': { lat: 10.2978, lng: 123.90204 }, // Colon area
-  'University of Visayas': { lat: 10.2978, lng: 123.90204 }, // Colon area
-  'Colon Obelisk': { lat: 10.29794, lng: 123.90375 }, // Colon area
-  'Mabini St': { lat: 10.29879, lng: 123.90383 }, // Along route
-  'Zulueta St': { lat: 10.29852, lng: 123.90539 }, // Along route
-  'MJ Cuenca Ave': { lat: 10.29836, lng: 123.90609 }, // Along route
-  'Tiburcio': { lat: 10.3003, lng: 123.90646 }, // Along route
-  'Padilla St': { lat: 10.30131, lng: 123.90659 }, // Along route
-  'B Benedicto St': { lat: 10.30189, lng: 123.90661 }, // Along route
-  'General Maxilom Ave Ext': { lat: 10.30196, lng: 123.90736 }, // Along route
-  'Pier 3': { lat: 10.29849, lng: 123.90843 }, // End of route from KML
+  // 01C Route stops - exact coordinates from Google Maps URLs
+  'University of San Carlos South Campus': { lat: 10.300413, lng: 123.887984 },
+  'J Alcantara': { lat: 10.2998482, lng: 123.8916874 },
+  'Leon Kilat St': { lat: 10.2963913, lng: 123.8962662 },
+  'Metro Colon': { lat: 10.2960255, lng: 123.8983942 },
+  'Colonade Supermarket': { lat: 10.2971613, lng: 123.8999591 },
+  'Gaisano Main': { lat: 10.2975525, lng: 123.9016732 },
+  'University of Visayas': { lat: 10.2982613, lng: 123.9014808 },
+  'Colon Obelisk': { lat: 10.2979797, lng: 123.9036644 },
+  'Mabini St': { lat: 10.2979721, lng: 123.9037308 },
+  'Zulueta St': { lat: 10.2985619, lng: 123.9049727 },
+  'MJ Cuenca Ave': { lat: 10.2999962, lng: 123.90635 },
+  'Tiburcio': { lat: 10.3019728, lng: 123.9073451 },
+  'B Benedicto St': { lat: 10.30351, lng: 123.9094037 },
+  'General Maxilom Ave Ext': { lat: 10.306426, lng: 123.910329 },
+  'Pier 4': { lat: 10.303479, lng: 123.912758 },
+  'Pier 3': { lat: 10.298532, lng: 123.90839 },
 };
 
 const FILTER_OPTIONS = ['All Stops (Manual)', ...Object.values(ROUTE_DATABASE).map((route) => route.label)];
@@ -109,14 +108,35 @@ const geocodeLocation = async (
 
   try {
     // Add "Cebu City, Philippines" to improve accuracy
-    const query = `${locationName}, Cebu City, Philippines`;
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${apiKey}`;
+    // For streets/landmarks, be more specific
+    let query = locationName;
+    
+    // If it's a street or specific location, add Cebu context
+    if (!locationName.toLowerCase().includes('cebu') && !locationName.toLowerCase().includes('pier')) {
+      query = `${locationName}, Cebu City, Cebu, Philippines`;
+    } else {
+      query = `${locationName}, Cebu, Philippines`;
+    }
+    
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${apiKey}&region=ph`;
 
     const response = await fetch(url);
     const data = await response.json();
 
     if (data.status === 'OK' && data.results && data.results.length > 0) {
-      const location = data.results[0].geometry.location;
+      // Find the most relevant result (prefer Cebu City results)
+      let bestResult = data.results[0];
+      
+      // Prefer results that mention Cebu City
+      for (const result of data.results) {
+        const address = result.formatted_address.toLowerCase();
+        if (address.includes('cebu city') || address.includes('cebu')) {
+          bestResult = result;
+          break;
+        }
+      }
+      
+      const location = bestResult.geometry.location;
       const coords = { lat: location.lat, lng: location.lng };
       geocodeCache[locationName] = coords;
       return coords;
@@ -149,6 +169,10 @@ const fares = () => {
   const [fromSearchQuery, setFromSearchQuery] = useState('');
   const [toSearchQuery, setToSearchQuery] = useState('');
 
+  type LatLngPoint = { latitude: number; longitude: number };
+  // State to track geocoded coordinates for selected stops
+  const [geocodedCoordinates, setGeocodedCoordinates] = useState<Record<string, LatLngPoint>>({});
+
   const googleApiKey =
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
     (Constants?.expoConfig?.extra as { googleMapsApiKey?: string })?.googleMapsApiKey ||
@@ -164,44 +188,45 @@ const fares = () => {
     async (stopName: string): Promise<{ lat: number; lng: number } | null> => {
       if (!stopName) return null;
 
-      // If a route is selected and has KML coordinates, use route-based positioning
-      if (filterDestination && availableStops.length > 0) {
-        const selectedRoute = Object.values(ROUTE_DATABASE).find((r) => r.label === filterDestination);
-        
-        if (selectedRoute?.coordinates && selectedRoute.coordinates.length > 0) {
-          const stopIndex = availableStops.indexOf(stopName);
-          
-          if (stopIndex >= 0) {
-            // Interpolate position along the route based on stop order
-            const totalStops = availableStops.length;
-            const progress = totalStops > 1 ? stopIndex / (totalStops - 1) : 0;
-            const routeIndex = Math.round(progress * (selectedRoute.coordinates.length - 1));
-            const routeCoord = selectedRoute.coordinates[routeIndex];
-            
-            if (routeCoord) {
-              const coords = { lat: routeCoord.latitude, lng: routeCoord.longitude };
-              geocodeCache[stopName] = coords;
-              return coords;
-            }
-          }
-        }
-      }
-
-      // Fallback: Check cache and static coordinates
-      if (geocodeCache[stopName]) return geocodeCache[stopName];
+      // PRIORITY 1: Use exact static coordinates from Google Maps URLs (most accurate)
       if (LOCATION_COORDINATES[stopName]) {
-        geocodeCache[stopName] = LOCATION_COORDINATES[stopName];
-        return LOCATION_COORDINATES[stopName];
+        const coords = LOCATION_COORDINATES[stopName];
+        geocodeCache[stopName] = coords;
+        // Also update geocodedCoordinates state
+        setGeocodedCoordinates((prev) => ({
+          ...prev,
+          [stopName]: { latitude: coords.lat, longitude: coords.lng },
+        }));
+        return coords;
       }
 
-      // Last resort: Geocode if API key available
+      // PRIORITY 2: Use geocoded coordinates if available
+      if (geocodedCoordinates[stopName]) {
+        return {
+          lat: geocodedCoordinates[stopName].latitude,
+          lng: geocodedCoordinates[stopName].longitude,
+        };
+      }
+
+      // PRIORITY 3: Check cache
+      if (geocodeCache[stopName]) return geocodeCache[stopName];
+
+      // PRIORITY 4: Geocode using Google Maps API (only if no static coordinates)
       if (googleApiKey) {
-        return await geocodeLocation(stopName, googleApiKey);
+        const coords = await geocodeLocation(stopName, googleApiKey);
+        if (coords) {
+          // Also update geocodedCoordinates state
+          setGeocodedCoordinates((prev) => ({
+            ...prev,
+            [stopName]: { latitude: coords.lat, longitude: coords.lng },
+          }));
+        }
+        return coords;
       }
 
       return null;
     },
-    [filterDestination, availableStops, googleApiKey],
+    [googleApiKey, geocodedCoordinates],
   );
 
   const fetchDistanceFromGoogle = async (origin: string, destination: string) => {
@@ -238,62 +263,113 @@ const fares = () => {
   };
 
   const calculateFareAmount = (km: number, type: string) => {
-    if (km <= 0) return 0;
+    if (type === 'Regular') {
+      if (km <= 4) return 13.0;
+      return 13.0 + (km - 4) * 1.8;
+    }
 
-    const baseKm = 4;
-    const isDiscounted = type === 'Student' || type === 'Senior' || type === 'PWD';
-    const rates = isDiscounted ? fareMatrix.Discounted : fareMatrix.Regular;
-    const excessKm = Math.max(km - baseKm, 0);
+    if (type === 'Discounted' || type === 'Student' || type === 'Senior' || type === 'PWD') {
+      if (km <= 4) return 9.6;
+      return 9.6 + (km - 4) * 1.44;
+    }
 
-    return rates.baseFare + excessKm * rates.succeedingRate;
+    // Default to Regular if type doesn't match
+    if (km <= 4) return 13.0;
+    return 13.0 + (km - 4) * 1.8;
   };
 
-  type LatLngPoint = { latitude: number; longitude: number };
+  // Geocode a stop when it's selected - prioritizes exact static coordinates
+  const geocodeStop = useCallback(
+    async (stopName: string) => {
+      if (!stopName) return null;
 
-  // Get coordinates for map markers - uses KML route coordinates when available
+      // Check if already geocoded
+      if (geocodedCoordinates[stopName]) {
+        return geocodedCoordinates[stopName];
+      }
+
+      // PRIORITY 1: Use exact static coordinates from Google Maps URLs (most accurate)
+      const staticCoords = LOCATION_COORDINATES[stopName];
+      if (staticCoords) {
+        const latLng = { latitude: staticCoords.lat, longitude: staticCoords.lng };
+        geocodeCache[stopName] = staticCoords;
+        setGeocodedCoordinates((prev) => ({ ...prev, [stopName]: latLng }));
+        return latLng;
+      }
+
+      // PRIORITY 2: Check cache
+      if (geocodeCache[stopName]) {
+        const coords = { latitude: geocodeCache[stopName].lat, longitude: geocodeCache[stopName].lng };
+        setGeocodedCoordinates((prev) => ({ ...prev, [stopName]: coords }));
+        return coords;
+      }
+
+      // PRIORITY 3: Geocode using Google Maps API (only if no static coordinates)
+      if (googleApiKey) {
+        setIsGeocoding(true);
+        try {
+          const coords = await geocodeLocation(stopName, googleApiKey);
+          if (coords) {
+            const latLng = { latitude: coords.lat, longitude: coords.lng };
+            setGeocodedCoordinates((prev) => ({ ...prev, [stopName]: latLng }));
+            return latLng;
+          }
+        } catch (error) {
+          console.error('Error geocoding stop:', stopName, error);
+        } finally {
+          setIsGeocoding(false);
+        }
+      }
+
+      return null;
+    },
+    [googleApiKey, geocodedCoordinates],
+  );
+
+  // Geocode stops when they're selected
+  useEffect(() => {
+    if (fromLocation && googleApiKey) {
+      geocodeStop(fromLocation);
+    }
+  }, [fromLocation, googleApiKey, geocodeStop]);
+
+  useEffect(() => {
+    if (toLocation && googleApiKey) {
+      geocodeStop(toLocation);
+    }
+  }, [toLocation, googleApiKey, geocodeStop]);
+
+  // Get coordinates for map markers - prioritizes exact static coordinates
   const getStopCoordinateForMap = useCallback(
     (stopName: string): LatLngPoint | null => {
       if (!stopName) return null;
 
-      // If a route is selected and has KML coordinates, position stops along the route
-      if (filterDestination && availableStops.length > 0) {
-        const selectedRoute = Object.values(ROUTE_DATABASE).find((r) => r.label === filterDestination);
-        
-        if (selectedRoute?.coordinates && selectedRoute.coordinates.length > 0) {
-          const stopIndex = availableStops.indexOf(stopName);
-          
-          if (stopIndex >= 0) {
-            // Interpolate position along the route based on stop order
-            const totalStops = availableStops.length;
-            const progress = totalStops > 1 ? stopIndex / (totalStops - 1) : 0;
-            const routeIndex = Math.round(progress * (selectedRoute.coordinates.length - 1));
-            const routeCoord = selectedRoute.coordinates[routeIndex];
-            
-            if (routeCoord) {
-              // Cache this coordinate
-              geocodeCache[stopName] = { lat: routeCoord.latitude, lng: routeCoord.longitude };
-              return routeCoord;
-            }
-          }
+      // PRIORITY 1: Use exact static coordinates from Google Maps URLs (most accurate)
+      const staticCoords = LOCATION_COORDINATES[stopName];
+      if (staticCoords) {
+        geocodeCache[stopName] = staticCoords;
+        const latLng = { latitude: staticCoords.lat, longitude: staticCoords.lng };
+        // Update geocodedCoordinates if not already set
+        if (!geocodedCoordinates[stopName]) {
+          setGeocodedCoordinates((prev) => ({ ...prev, [stopName]: latLng }));
         }
+        return latLng;
       }
 
-      // Fallback: Check cache first
+      // PRIORITY 2: Use geocoded coordinates if available
+      if (geocodedCoordinates[stopName]) {
+        return geocodedCoordinates[stopName];
+      }
+
+      // PRIORITY 3: Check cache
       const cached = geocodeCache[stopName];
       if (cached) {
         return { latitude: cached.lat, longitude: cached.lng };
       }
 
-      // Fallback: Check static coordinates
-      const staticCoords = LOCATION_COORDINATES[stopName];
-      if (staticCoords) {
-        geocodeCache[stopName] = staticCoords;
-        return { latitude: staticCoords.lat, longitude: staticCoords.lng };
-      }
-
       return null;
     },
-    [filterDestination, availableStops],
+    [geocodedCoordinates],
   );
 
   // Geocode stops when route is selected
@@ -358,7 +434,7 @@ const fares = () => {
     const longitudeDelta = Math.abs(fromCoords.longitude - toCoords.longitude) + 0.05;
 
     return { latitude, longitude, latitudeDelta, longitudeDelta };
-  }, [fromLocation, toLocation, getStopCoordinateForMap]);
+  }, [fromLocation, toLocation, getStopCoordinateForMap, geocodedCoordinates]);
 
   const handleCalculateFare = async () => {
     if (!fromLocation || !toLocation) {
@@ -375,7 +451,23 @@ const fares = () => {
       setIsCalculating(true);
       setErrorMessage('');
 
-      const km = await fetchDistanceFromGoogle(fromLocation, toLocation);
+      let km = 0;
+
+      // Get coordinates for both locations
+      const originCoords = await getStopCoordinates(fromLocation);
+      const destinationCoords = await getStopCoordinates(toLocation);
+
+      if (!originCoords || !destinationCoords) {
+        throw new Error('Could not find coordinates for selected locations. Please try again.');
+      }
+
+      // Use Directions API for accurate distance
+      const originParam = `${originCoords.lat},${originCoords.lng}`;
+      const destinationParam = `${destinationCoords.lat},${destinationCoords.lng}`;
+
+      km = await fetchDistanceFromDirectionsAPI(originParam, destinationParam, googleApiKey);
+      console.log(`Using Google Directions API distance: ${km.toFixed(2)} km`);
+
       setDistanceKm(km);
 
       const fareAmount = calculateFareAmount(km, passengerType);
@@ -415,20 +507,20 @@ const fares = () => {
     }, [options, searchQuery]);
 
     return (
-      <Modal
-        visible={visible}
-        transparent
-        animationType="slide"
-        onRequestClose={onClose}
-      >
-        <View className="flex-1 justify-end bg-black/50">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 justify-end bg-black/50">
           <View className="bg-white rounded-t-3xl p-4 max-h-[70%]">
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-lg font-bold text-dark">{title}</Text>
-              <TouchableOpacity onPress={onClose}>
-                <Ionicons name="close" size={24} color="#000" />
-              </TouchableOpacity>
-            </View>
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-lg font-bold text-dark">{title}</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color="#000" />
+            </TouchableOpacity>
+          </View>
             {onSearchChange && (
               <View className="mb-4">
                 <TextInput
@@ -440,34 +532,34 @@ const fares = () => {
                 />
               </View>
             )}
-            <FlatList
+          <FlatList
               data={filteredOptions}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  onPress={() => {
-                    onSelect(item);
-                    onClose();
-                  }}
-                  className={`py-4 px-4 border-b border-gray-200 ${
-                    selectedValue === item ? 'bg-primary/10' : ''
-                  }`}
-                >
-                  <Text className={`text-base ${selectedValue === item ? 'text-primary font-bold' : 'text-dark'}`}>
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              )}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                onPress={() => {
+                  onSelect(item);
+                  onClose();
+                }}
+                className={`py-4 px-4 border-b border-gray-200 ${
+                  selectedValue === item ? 'bg-primary/10' : ''
+                }`}
+              >
+                <Text className={`text-base ${selectedValue === item ? 'text-primary font-bold' : 'text-dark'}`}>
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            )}
               ListEmptyComponent={
                 <View className="py-8 items-center">
                   <Text className="text-gray-500">No stops found</Text>
                 </View>
               }
-            />
-          </View>
+          />
         </View>
-      </Modal>
-    );
+      </View>
+    </Modal>
+  );
   };
 
   return (
@@ -574,7 +666,9 @@ const fares = () => {
                 </MapView>
               </View>
               <Text className="text-xs text-center text-gray-500 mt-1">
-                Map previews adjust once both start and destination are selected.
+                {isGeocoding
+                  ? 'Locating stops on map...'
+                  : 'Map previews adjust once both start and destination are selected.'}
               </Text>
             </View>
           )}

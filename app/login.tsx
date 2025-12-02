@@ -92,7 +92,7 @@ export default function LogInScreen() {
 
       console.log('🔹 Launching Google Sign-In...');
       const userInfo = await GoogleSignin.signIn();
-      console.log('✅ Google Sign-In response:', JSON.stringify(userInfo, null, 2));
+      console.log('✅ Google Sign-In response:');
 
       // Attempt to extract the ID token
       const idToken = (userInfo as any).idToken ?? (userInfo.data?.idToken ?? null);
@@ -109,7 +109,7 @@ export default function LogInScreen() {
       if (error) {
         console.error('❌ Supabase sign-in error:', error);
       } else {
-        console.log('✅ Supabase login success:', data);
+        console.log('✅ Supabase login success:');
       }
 
     } catch (error: any) {

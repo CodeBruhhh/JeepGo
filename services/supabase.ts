@@ -3,7 +3,7 @@ import { deleteItemAsync, getItemAsync, setItemAsync } from 'expo-secure-store';
 
 const ExpoSecureStoreAdapter = {
   getItem: (key: string) => {
-    console.debug("getItem", { key })
+    console.debug("getItem", { key, getItemAsync })
     return getItemAsync(key)
   },
   setItem: (key: string, value: string) => {
@@ -17,19 +17,9 @@ const ExpoSecureStoreAdapter = {
   },
 };
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
-
-// Validate that required environment variables are set
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error(
-    'Missing required environment variables. Please ensure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are set in your .env file'
-  );
-}
-
 export const supabase = createClient(
-  supabaseUrl,
-  supabaseAnonKey,
+  process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
   {
     auth: {
       storage: ExpoSecureStoreAdapter as any,

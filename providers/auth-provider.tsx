@@ -47,23 +47,13 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       setIsLoading(true)
 
       if (session) {
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
 
-          if (error) {
-            console.error('Error fetching profile:', error)
-            setProfile(null)
-          } else {
-            setProfile(data)
-          }
-        } catch (error) {
-          console.error('Unexpected error fetching profile:', error)
-          setProfile(null)
-        }
+        setProfile(data)
       } else {
         setProfile(null)
       }

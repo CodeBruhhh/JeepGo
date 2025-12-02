@@ -526,14 +526,13 @@ const MapScreen = () => {
       router.push({
         pathname: '/ride_tracking',
         params: {
-          requestId: String(requestId),
-          driverId: String(driverId),
-          userLat: String(userLat),
-          userLng: String(userLng),
-          lat: String(stopLat),
-          lng: String(stopLng),
-          name: stopLocationName || 'Destination',
-          passengerId: String(passengerId),
+          requestId: requestId.toString(),
+          driverId: driverId.toString(),
+          userLat: userLocation.latitude.toString(),
+          userLng: userLocation.longitude.toString(),
+          lat: stopLocation.latitude.toString(),
+          lng: stopLocation.longitude.toString(),
+          name: stopLocationName,
         },
       });
     } catch (navError) {

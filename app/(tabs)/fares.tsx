@@ -15,6 +15,11 @@ import route03Q from '@/Route Codes/03Q';
 import route04B from '@/Route Codes/04B';
 import route04H from '@/Route Codes/04H';
 import route04I from '@/Route Codes/04I';
+import route04L from '@/Route Codes/04L';
+import route04M from '@/Route Codes/04M';
+import route06B from '@/Route Codes/06B';
+import route06C from '@/Route Codes/06C';
+import route06G from '@/Route Codes/06G';
 import { fetchDistanceFromDirectionsAPI } from '@/utils/distanceCalculator';
 
 
@@ -30,11 +35,11 @@ const ROUTE_DATABASE: Record<string, RouteDefinition> = {
   [route04B.code]: route04B,
   [route04H.code]: route04H,
   [route04I.code]: route04I,
-  '06B': {
-    code: '06B',
-    label: '06B - Talamban to Colon',
-    stops: ['Talamban', 'Capitol', 'Colon'],
-  },
+  [route04L.code]: route04L,
+  [route04M.code]: route04M,
+  [route06B.code]: route06B,
+  [route06C.code]: route06C,
+  [route06G.code]: route06G,
   '69B': {
     code: '69B',
     label: '69B - CIT-U to E-mall',
@@ -47,6 +52,20 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   Parkmall: { lat: 10.324514, lng: 123.9335724 },
   Urgello: { lat: 10.3001, lng: 123.889 },
   Capitol: { lat: 10.311, lng: 123.896 },
+  'Guadalupe Church': { lat: 10.331238, lng: 123.880046 },
+  'Fooda Guadalupe': { lat: 10.323272, lng: 123.883691 },
+  'Professional Regulations Commission PRC': { lat: 10.3173038, lng: 123.8850433 },
+  'Vicente Sotto Hospital': { lat: 10.30898, lng: 123.891732 },
+  'Robinsons Fuente': { lat: 10.3095317, lng: 123.8939535 },
+  'Metropolitan Cebu Water District': { lat: 10.2927983, lng: 123.9030364 },
+  'Securities and Exchange Commission SEC': { lat: 10.31321, lng: 123.885989 },
+  'Calamba Cemetery': { lat: 10.3034804, lng: 123.8858536 },
+  'Tres de Abril St': { lat: 10.2976607, lng: 123.8823523 },
+  'Miller Hospital': { lat: 10.296666, lng: 123.887601 },
+  'Pasil Fish Market': { lat: 10.292407, lng: 123.891855 },
+  'Don Carlos Gothong High School': { lat: 10.293708, lng: 123.889583 },
+  'Carlock St': { lat: 10.2936478, lng: 123.8869439 },
+  'R Padilla Street': { lat: 10.292447, lng: 123.883708 },
   Ayala: { lat: 10.3187, lng: 123.9051 },
   Colon: { lat: 10.2969, lng: 123.9036 },
   Talamban: { lat: 10.3586, lng: 123.913 },
@@ -62,7 +81,7 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'Cebu Business Park': { lat: 10.318, lng: 123.9059 },
   'Banilad Town Center': { lat: 10.351, lng: 123.9131 },
   'Talamban Proper': { lat: 10.3618, lng: 123.915 },
-  'Cebu IT Park': { lat: 10.3309, lng: 123.9043 },
+  'Cebu IT Park': { lat: 10.3293875, lng: 123.9069196 },
   'Rizal Museum': { lat: 10.2933, lng: 123.9027 },
   'Basilica Minore': { lat: 10.2928, lng: 123.9023 },
   'E-Mall Entrance': { lat: 10.2978, lng: 123.9035 },
@@ -128,6 +147,20 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'Landers Superstore Cebu': { lat: 10.3204806, lng: 123.9100897 },
   'Juan Luna Avenue': { lat: 10.3175661, lng: 123.9126331 },
   'SM City Cebu': { lat: 10.3114191, lng: 123.9178164 },
+  // 04L Route stops (Lahug to SM via Ayala) - exact coordinates from Google Maps URLs
+  'Lahug': { lat: 10.331056, lng: 123.898121 },
+  'The Golden Peak Hotel': { lat: 10.318358, lng: 123.899974 },
+  'Cebu Parklane Hotel': { lat: 10.320182, lng: 123.903381 },
+  'Pag-Ibig Fund Cebu Office': { lat: 10.320216, lng: 123.90451 },
+  'Insular Life Cebu Business Center': { lat: 10.319886, lng: 123.906036 },
+  'Keppel Tower Cebu Business Park': { lat: 10.318585, lng: 123.908266 },
+  // 'Pope John Paul II Ave' already exists
+  // 'Camelita Monastery' already exists
+  // 'St. Joseph Parish' already exists
+  // 04M Route stops (JY Square Mall to Ayala Terminal) - exact coordinates from Google Maps URLs
+  'University of Southern Philippines': { lat: 10.329061, lng: 123.902163 },
+  // 'Cebu IT Park' already exists (updated with more precise coordinates from Google Maps)
+  'Ayala Public Utility Vehicle Terminal': { lat: 10.318864, lng: 123.9035148 },
   // 03B Route stops - exact coordinates from Google Maps URLs
   'Sindulan St': { lat: 10.319353, lng: 123.915979 },
   'University of San Carlos - North Campus': { lat: 10.3118001, lng: 123.901127 },
@@ -138,7 +171,7 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'Crown Regency Hotel & Towers': { lat: 10.3080134, lng: 123.894077 },
   'Abellana Sport Complex': { lat: 10.3008664, lng: 123.8952547 },
   'Social Security System - Cebu Main Office': { lat: 10.2983988, lng: 123.8967585 },
-  'Robinsons Fuente': { lat: 10.3095317, lng: 123.8939535 },
+  // 'Robinsons Fuente' already exists - 06C reuses this
   // 03L Route stops - exact coordinates from Google Maps URLs
   'P Cabantan': { lat: 10.322451, lng: 123.905229 },
   'Waterfront Hotel': { lat: 10.3251762, lng: 123.9035573 },

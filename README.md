@@ -32,9 +32,6 @@ expo install react-native-maps expo-location
 
 npx expo install expo-crypto
 
-npx react-native-asset
-
-
 # To Run Project
 
 npx expo start

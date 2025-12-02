@@ -18,7 +18,6 @@ export default function account() {
 
   if (!profile)
     return <Text className="text-center text-gray-500">Loading profile...</Text>;
-    console.log([profile])
 
   return (
     <View className="flex-1 items-center justify-center bg-secondary gap-4">

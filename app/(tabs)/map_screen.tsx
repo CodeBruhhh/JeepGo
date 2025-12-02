@@ -163,7 +163,7 @@ const MapScreen = () => {
       const coordinates = [userLocation, destination];
       
       const edgePadding = {
-        top: 100,
+        top: 10,
         right: 50,
         bottom: SCREEN_HEIGHT * 0.5,
         left: 50,
@@ -441,9 +441,9 @@ const MapScreen = () => {
 
         mapRef.current.fitToCoordinates(coordinates, {
           edgePadding: {
-            top: 100,
+            top: 250,
             right: 50,
-            bottom: SCREEN_HEIGHT * 0.6,
+            bottom: SCREEN_HEIGHT * 0.4,
             left: 50,
           },
           animated: true,
@@ -527,6 +527,7 @@ const MapScreen = () => {
           lat: stopLocation.latitude.toString(),
           lng: stopLocation.longitude.toString(),
           name: stopLocationName,
+          passengerId: passengerId.toString(),
         },
       });
 
@@ -621,7 +622,30 @@ const MapScreen = () => {
             key={driver.driver_id}
             coordinate={{ latitude: driver.latitude, longitude: driver.longitude }}
             title={`${driver.jeep_code} - Tap to book`}
-            onPress={() => handleBookRide(driver.driver_id)}
+            onPress={() => {
+              if (mapRef.current && userLocation) {
+                mapRef.current.fitToCoordinates(
+                  [{ latitude: userLocation.latitude, longitude: userLocation.longitude }, { latitude: driver.latitude, longitude: driver.longitude }],
+                  {
+                    edgePadding: {
+                      top: 250,                       
+                      right: 50,                       
+                      bottom: SCREEN_HEIGHT * 0.6,     
+                      left: 50,                        
+                    },
+                    animated: true,
+                  }
+                );
+              }
+              Alert.alert(
+                'Confirm Booking',
+                `Do you want to book this jeep? (${driver.jeep_code})`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Yes', onPress: () => handleBookRide(driver.driver_id) }
+                ]
+              );
+            }}
           >
             <View className="bg-white rounded-full p-2 border-2 border-[#996FD6]">
               <Image source={require('@/assets/images/jeep_icon.png')} className='w-5 h-5'/>
@@ -640,7 +664,7 @@ const MapScreen = () => {
 
       {/* Show active filter badge */}
       {showDrivers && selectedJeepCode && (
-        <View className="absolute top-12 right-4 bg-[#996FD6] px-4 py-2 rounded-full z-50 flex-row items-center" style={styles.shadow}>
+        <View className="absolute top-1/2 right-4 bg-[#996FD6] px-4 py-2 rounded-full z-50 flex-row items-center" style={styles.shadow}>
           <Text className="text-white font-bold mr-2">{selectedJeepCode}</Text>
           <TouchableOpacity onPress={() => {
             setShowDrivers(false);
@@ -655,7 +679,7 @@ const MapScreen = () => {
 
       {locationError && (
         <View
-          className="absolute top-24 left-4 right-4 bg-yellow-100 border border-yellow-400 rounded-lg p-3 z-40"
+          className="absolute top-1/2 left-4 right-4 bg-yellow-100 border border-yellow-400 rounded-lg p-3 z-40"
           style={styles.shadow}
         >
           <Text className="text-yellow-800 text-sm">

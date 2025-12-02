@@ -54,6 +54,7 @@ const _layout = () => {
             <Tabs.Screen name="fares" options={{ headerShown: false , title: 'Fares'}} />
             <Tabs.Screen name="account" options={{ headerShown: false , title: 'Account'}} />
             <Tabs.Screen name="map_screen" options={{ headerShown: false , title: 'MapScreen'}} />
+            <Tabs.Screen name="ride_tracking" options={{ headerShown: false , title: 'RideTracking'}} />
             </Tabs>
     </View>
   );

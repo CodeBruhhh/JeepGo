@@ -20,6 +20,11 @@ import route04M from '@/Route Codes/04M';
 import route06B from '@/Route Codes/06B';
 import route06C from '@/Route Codes/06C';
 import route06G from '@/Route Codes/06G';
+import route06H from '@/Route Codes/06H';
+import route07B from '@/Route Codes/07B';
+import route08G from '@/Route Codes/08G';
+import route09C from '@/Route Codes/09C';
+import route09F from '@/Route Codes/09F';
 import { fetchDistanceFromDirectionsAPI } from '@/utils/distanceCalculator';
 
 
@@ -40,6 +45,11 @@ const ROUTE_DATABASE: Record<string, RouteDefinition> = {
   [route06B.code]: route06B,
   [route06C.code]: route06C,
   [route06G.code]: route06G,
+  [route06H.code]: route06H,
+  [route07B.code]: route07B,
+  [route08G.code]: route08G,
+  [route09C.code]: route09C,
+  [route09F.code]: route09F,
   '69B': {
     code: '69B',
     label: '69B - CIT-U to E-mall',
@@ -52,6 +62,10 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   Parkmall: { lat: 10.324514, lng: 123.9335724 },
   Urgello: { lat: 10.3001, lng: 123.889 },
   Capitol: { lat: 10.311, lng: 123.896 },
+  'Court of Appeals': { lat: 10.305267, lng: 123.876473 },
+  'R. Arcenas Street': { lat: 10.309547, lng: 123.875931 },
+  'Good Shepherd Street': { lat: 10.312507, lng: 123.877961 },
+  'Jose Fortichi Street': { lat: 10.31468, lng: 123.88225 },
   'Guadalupe Church': { lat: 10.331238, lng: 123.880046 },
   'Fooda Guadalupe': { lat: 10.323272, lng: 123.883691 },
   'Professional Regulations Commission PRC': { lat: 10.3173038, lng: 123.8850433 },
@@ -79,6 +93,9 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'Cebu City Hall': { lat: 10.2931, lng: 123.9021 },
   "Magellan's Cross": { lat: 10.2922, lng: 123.9033 },
   'Cebu Business Park': { lat: 10.318, lng: 123.9059 },
+  // 09F additions - ensure exact keys used by the 09F route
+  'University of the Visayas - Main Campus': { lat: 10.2984693, lng: 123.901289 },
+  'M. J. Cuenco Ave': { lat: 10.2999962, lng: 123.90635 },
   'Banilad Town Center': { lat: 10.351, lng: 123.9131 },
   'Talamban Proper': { lat: 10.3618, lng: 123.915 },
   'Cebu IT Park': { lat: 10.3293875, lng: 123.9069196 },
@@ -87,7 +104,16 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'E-Mall Entrance': { lat: 10.2978, lng: 123.9035 },
   // 02B Route stops - exact coordinates from Google Maps URLs
   'Cebu City Medical Center': { lat: 10.2975079, lng: 123.8916166 },
-  'Cebu South Bus Terminal': { lat: 10.2982638, lng: 123.8931472 },
+  'Cebu South Bus Terminal': { lat: 10.2976322, lng: 123.8934881 },
+  // 09C Route stops (Basak -> Colon) - exact coordinates from Google Maps URLs
+  Quiot: { lat: 10.2885894, lng: 123.859503 },
+  'Southwestern University Basak Campus': { lat: 10.292571, lng: 123.863207 },
+  'Don Vicente Rama Memorial National High School': { lat: 10.290385, lng: 123.866205 },
+  Shopwise: { lat: 10.289858, lng: 123.870489 },
+  'Mambaling Flyover': { lat: 10.290143, lng: 123.875167 },
+  'Cebu Institute of Technology - University': { lat: 10.2944755, lng: 123.881134 },
+  'Salazar Colleges of Science and Institute Of Technology': { lat: 10.2957372, lng: 123.8834969 },
+  'University of San Jose-Recoletos': { lat: 10.293997, lng: 123.8975074 },
   'Metro Colon': { lat: 10.296236, lng: 123.898277 },
   'Colonnade Supermarket': { lat: 10.2971613, lng: 123.8999591 },
   'P. Burgos Street': { lat: 10.2956, lng: 123.903684 },

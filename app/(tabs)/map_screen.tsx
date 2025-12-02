@@ -212,7 +212,7 @@ const MapScreen = () => {
 
   useEffect(() => {
     if (!userLocation || !destination) {
-      setLoading(false);
+      setLoading(true);
       return;
     }
 
@@ -459,83 +459,95 @@ const MapScreen = () => {
   };
 
   const handleBookRide = async (driverId: string) => {
-    if (!stopLocation || !userLocation) {
-      Alert.alert('Error', 'Please select a jeep route first.');
-      return;
+    // Safely extract coordinates
+    const userLat = userLocation?.latitude;
+    const userLng = userLocation?.longitude;
+    const stopLat = stopLocation?.latitude;
+    const stopLng = stopLocation?.longitude;
+
+    if (!userLat || !userLng || !stopLat || !stopLng) {
+    Alert.alert('Error', 'Please select a jeep route first.');
+    return;
     }
 
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData.user) {
-        Alert.alert('Error', 'Could not get user info.');
-        return;
-      }
+    // Get current user
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user || !userData.user.id) {
+    Alert.alert('Error', 'Could not get user info.');
+    return;
+    }
+    const passengerId = userData.user.id;
 
-      const passengerId = userData.user.id;
+    console.log('Creating ride request with:', {
+      passenger_id: passengerId,
+      driver_id: driverId,
+      from_x: userLat,
+      from_y: userLng,
+      to_x: stopLat,
+      to_y: stopLng,
+      status: 'pending',
+      destination_name: stopLocationName,
+    });
 
-      console.log('Creating ride request with:', {
+    // Insert ride request
+    const { data, error } = await supabase
+      .from('ride_requests')
+      .insert({
         passenger_id: passengerId,
         driver_id: driverId,
-        from_x: userLocation.latitude,
-        from_y: userLocation.longitude,
-        to_x: stopLocation.latitude,
-        to_y: stopLocation.longitude,
+        from_x: userLat,
+        from_y: userLng,
+        to_x: stopLat,
+        to_y: stopLng,
         status: 'pending',
-        destination_name: stopLocationName,
-      });
+        destination_name: stopLocationName || 'Destination',
+      })
+      .select('*')
+      .single();
 
-      const { data, error } = await supabase
-        .from('ride_requests')
-        .insert({
-          passenger_id: passengerId,
-          driver_id: driverId,
-          from_x: userLocation.latitude,
-          from_y: userLocation.longitude,
-          to_x: stopLocation.latitude,
-          to_y: stopLocation.longitude,
-          status: 'pending',
-          destination_name: stopLocationName,
-        })
-        .select('*')
-        .single();
+    if (error) {
+      console.error('Insert error:', error);
+      Alert.alert('Error', 'Failed to create ride request.');
+      return;
+    }
 
-      console.log('Insert result:', { data, error });
+    if (!data || typeof data.request_id === 'undefined') {
+      console.error('No data returned:', data);
+      Alert.alert('Error', 'Failed to get ride ID.');
+      return;
+    }
 
-      if (error) {
-        Alert.alert('Error', 'Failed to create ride request.');
-        console.error('Insert error:', error);
-        return;
-      }
+    const requestId = data.request_id;
+    console.log('Created ride with ID:', requestId);
 
-      if (!data || !data.request_id) {
-        Alert.alert('Error', 'Failed to get ride ID.');
-        console.error('No data returned:', data);
-        return;
-      }
-
-      const requestId = data.request_id;
-      console.log('Created ride with ID:', requestId);
-
-      // Route to ride tracking screen
+    // Navigate safely
+    try {
       router.push({
         pathname: '/ride_tracking',
         params: {
-          requestId: requestId.toString(),
-          driverId: driverId.toString(),
-          userLat: userLocation.latitude.toString(),
-          userLng: userLocation.longitude.toString(),
-          lat: stopLocation.latitude.toString(),
-          lng: stopLocation.longitude.toString(),
-          name: stopLocationName,
-          passengerId: passengerId.toString(),
+          requestId: String(requestId),
+          driverId: String(driverId),
+          userLat: String(userLat),
+          userLng: String(userLng),
+          lat: String(stopLat),
+          lng: String(stopLng),
+          name: stopLocationName || 'Destination',
+          passengerId: String(passengerId),
         },
       });
+    } catch (navError) {
+      console.error('Navigation error:', navError);
+      Alert.alert('Error', 'Could not navigate to ride tracking.');
+    }
+
 
     } catch (err) {
-      console.error('Booking error:', err);
-      Alert.alert('Error', 'Something went wrong.');
+    console.error('Booking error:', err);
+    Alert.alert('Error', 'Something went wrong.');
     }
   };
+
 
   const getInitialRegion = () => {
     if (userLocation && destination) {

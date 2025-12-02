@@ -496,13 +496,7 @@ const RideTracking = () => {
         followsUserLocation={true}
       >
         {userLocation && <Marker coordinate={userLocation} title="You" pinColor="blue" />}
-        {pickupLocation && rideStatus === 'pending' && (
-          <Marker coordinate={pickupLocation} title="Pickup Location">
-            <View className="bg-green-500 p-2 rounded-full">
-              <Ionicons name="pin" size={20} color="white" />
-            </View>
-          </Marker>
-        )}
+        {pickupLocation && rideStatus === 'pending' && <></>}
         {driverLocation && (
           <Marker coordinate={driverLocation} title="Driver">
             <Image source={require('@/assets/images/jeep_icon.png')} style={{ width: 30, height: 30 }} />

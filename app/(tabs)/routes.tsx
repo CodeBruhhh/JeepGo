@@ -1,7 +1,6 @@
 import { citUToEmallRoute } from '@/assets/routes/citu-to-emall';
 import { route01CPrivateToColon } from '@/assets/routes/route-01c-private-to-colon';
-import { useRideButton } from '@/contexts/RideButtonContext';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, PanResponder, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
@@ -24,7 +23,6 @@ const routes = () => {
   const startPosition = useRef(BOTTOM_SHEET_MIN_HEIGHT);
   const scrollViewRef = useRef(null);
   const [enableScrolling, setEnableScrolling] = useState(false);
-  const { setShowRideButton } = useRideButton();
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [showRouteModal, setShowRouteModal] = useState(false);
   const [visibleRoutes, setVisibleRoutes] = useState<Set<number>>(new Set());
@@ -208,13 +206,6 @@ const routes = () => {
     height: panY,
     bottom: 0,
   };
-
-  // Ensure header/footer are restored when leaving this screen
-  useEffect(() => {
-    return () => {
-      setShowRideButton(true);
-    };
-  }, [setShowRideButton]);
 
   return (
     <View className="flex-1">

@@ -1,8 +1,5 @@
 import 'dotenv/config';
 
-const googleMapsApiKey =
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY || '';
-
 export default {
 
   name: 'JeepGo',
@@ -16,13 +13,13 @@ export default {
   ios: {
     supportsTablet: true,
     config: {
-      googleMapsApiKey: googleMapsApiKey || undefined,
+      googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
     },
   },
   android: {
     config: {
       googleMaps: {
-        apiKey: googleMapsApiKey || undefined,
+        apiKey: process.env.GOOGLE_MAPS_API_KEY,
       },
     },
     permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
@@ -66,7 +63,6 @@ export default {
     reactCompiler: true,
   },
   extra: {
-    googleMapsApiKey,
     router: {},
     eas: {
       projectId: '826545e3-cf2a-43b6-ac95-08c7c4b49458',

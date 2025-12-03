@@ -26,6 +26,8 @@ npx expo install expo-secure-store expo-splash-screen
 
 npm install @react-native-google-signin/google-signin
 
+npx install react-native-asset
+
 expo install react-native-maps expo-location
 
 npx expo install expo-crypto

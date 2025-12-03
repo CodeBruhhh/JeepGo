@@ -1,6 +1,6 @@
 import { icons } from '@/constants/icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import React from 'react';
+import React, { useState } from 'react';
 import { Dimensions, Image, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -46,21 +46,26 @@ const BottomNavigationBar: React.FC<CustomTabBarProps> = ({
     account: icons.account,
   };
 
+  const [pressed, setPressed] = useState(false);
+
+
   return (
     <Animated.View
       style={[
         {
           flexDirection: 'row',
           height: 100,
-          backgroundColor: '#CDA678',
+          backgroundColor: '#DDC6A1',
           position: 'absolute',
           bottom: 0,
           left: 0,
           right: 0,
-          borderTopWidth: 1,
-          borderColor: '#0f0d23',
           alignItems: 'center',
           justifyContent: 'space-between',
+          borderTopLeftRadius: 25,
+          borderTopRightRadius: 25,
+          zIndex: 10,
+          boxShadow: "0px -5px 10px rgba(0, 0, 0, 0.2)"
         },
         animatedStyle,
       ]}
@@ -93,6 +98,7 @@ const BottomNavigationBar: React.FC<CustomTabBarProps> = ({
                 justifyContent: 'center',
                 alignItems: 'center',
                 marginBottom: 4,
+                borderWidth: 1,
               }}
             >
               <Image
@@ -121,27 +127,27 @@ const BottomNavigationBar: React.FC<CustomTabBarProps> = ({
       {/* Ride Button */}
       <TouchableOpacity
         onPress={() => {
+          
           hideBar?.(); // triggers slide down
           navigation.navigate('ride');
         }}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
         activeOpacity={0.8}
         style={{
           position: 'absolute',
           top: '-50%',
           left: '50%',
-          transform: [{ translateX: -35 }],
+          marginLeft: -35,
+          transform: [{ scale: pressed ? 0.95 : 1 }],
           width: 70,
           height: 70,
           borderRadius: 35,
           backgroundColor: '#C57BFF',
           justifyContent: 'center',
           alignItems: 'center',
-          zIndex: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.2,
-          shadowRadius: 6,
-          elevation: 6,
+          zIndex: 20,
+          boxShadow: "inset 0 0 10px rgba(0, 0, 0, 0.3)",
           borderWidth: 1,
           borderColor: '#0f0d23',
         }}

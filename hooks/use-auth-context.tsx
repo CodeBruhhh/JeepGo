@@ -5,13 +5,16 @@ export type AuthData = {
   session?: Session | null
   profile?: any | null
   isLoading: boolean
+  role: string | null; 
   isLoggedIn: boolean
+  
 }
 
 export const AuthContext = createContext<AuthData>({
   session: undefined,
   profile: undefined,
   isLoading: true,
+  role: null,   
   isLoggedIn: false,
 })
 

@@ -1,3 +1,17 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .input-field {
+    @apply w-[300px] h-[70px] bg-highlight border border-highlight
+           rounded-3xl px-2 text-xl font-bold;
+  }
+}
+
+@layer components {
+  .input-field2 {
+    @apply w-[300px] h-[70px] bg-[#E4D685] border border-[#E4D685]
+           rounded-3xl px-2 text-xl font-bold;
+  }
+}

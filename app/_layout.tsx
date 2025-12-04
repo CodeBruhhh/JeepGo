@@ -31,7 +31,7 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <SafeAreaView className="flex-1 bg-white">
+      <SafeAreaView className="flex-1 bg-tertiary">
         <StatusBar hidden={false} style='dark'/>
         <SplashScreenController />
         <RootNavigator />

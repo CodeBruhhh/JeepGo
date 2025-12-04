@@ -1,5 +1,9 @@
 import { citUToEmallRoute } from '@/assets/routes/citu-to-emall';
 import { route01CPrivateToColon } from '@/assets/routes/route-01c-private-to-colon';
+import { route01KUrgelloToParkmall } from '@/assets/routes/route-01k-urgello-to-parkmall';
+import { route02BCsbtToColon } from '@/assets/routes/route-02b-csbt-to-colon';
+import { route03AMaboloToCarbon } from '@/assets/routes/route-03a-mabolo-to-carbon';
+import { route03QAyalaToSmCity } from '@/assets/routes/route-03q-ayala-to-sm-city';
 import React, { useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, PanResponder, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -38,7 +42,7 @@ const routes = () => {
     latitude: citUToEmallRoute.features[1].geometry.coordinates[1] as number,
     longitude: citUToEmallRoute.features[1].geometry.coordinates[0] as number
   };
-
+  
   const emallEnd = {
     latitude: citUToEmallRoute.features[2].geometry.coordinates[1] as number,
     longitude: citUToEmallRoute.features[2].geometry.coordinates[0] as number
@@ -131,53 +135,53 @@ const routes = () => {
     latitude: route01CPrivateToColon.features[1].geometry.coordinates[1] as number,
     longitude: route01CPrivateToColon.features[1].geometry.coordinates[0] as number
   };
-
+  
   const colonEnd = {
     latitude: route01CPrivateToColon.features[3].geometry.coordinates[1] as number,
     longitude: route01CPrivateToColon.features[3].geometry.coordinates[0] as number
   };
-
+  
   // Define routes with their waypoints
   const routesList = [
-    {
-      id: 1,
-      code: '01C',
+    { 
+      id: 1, 
+      code: '01C', 
       description: 'Private to Colon',
       color: '#FF6B6B',
       waypoints: route01CWaypoints,
       startPoint: uscStart,
       endPoint: colonEnd
     },
-    {
-      id: 2,
-      code: '01K',
+    { 
+      id: 2, 
+      code: '01K', 
       description: 'Urgello to Parkmall',
       color: '#4ECDC4',
       waypoints: route01KWaypoints,
       startPoint: urgelloStart,
       endPoint: parkmallEnd
     },
-    {
-      id: 3,
-      code: '02B',
+    { 
+      id: 3, 
+      code: '02B', 
       description: 'CSBT to Colon',
       color: '#FFD93D',
       waypoints: route02BWaypoints,
       startPoint: csbtStart,
       endPoint: pier3End
     },
-    {
-      id: 4,
-      code: '03A',
+    { 
+      id: 4, 
+      code: '03A', 
       description: 'Mabolo to Carbon',
       color: '#95E1D3',
       waypoints: route03AWaypoints,
       startPoint: maboloStart,
       endPoint: carbonEnd
     },
-    {
-      id: 5,
-      code: '06B',
+    { 
+      id: 5, 
+      code: '06B', 
       description: 'Talamban to Colon',
       color: '#A8E6CF',
       waypoints: [
@@ -186,9 +190,9 @@ const routes = () => {
         { latitude: 10.3600, longitude: 123.8800 }, // End point
       ]
     },
-    {
-      id: 6,
-      code: '69B',
+    { 
+      id: 6, 
+      code: '69B', 
       description: 'CIT-U to Emall',
       color: '#FF8B94',
       waypoints: citUToEmallWaypoints,
@@ -246,7 +250,7 @@ const routes = () => {
       onPanResponderMove: (event, gestureState) => {
         const newValue = startPosition.current - gestureState.dy;
         const clampedValue = Math.max(
-          BOTTOM_SHEET_MIN_HEIGHT,
+          BOTTOM_SHEET_MIN_HEIGHT, 
           Math.min(newValue, BOTTOM_SHEET_MAX_HEIGHT)
         );
         panY.setValue(clampedValue);
@@ -254,9 +258,9 @@ const routes = () => {
       onPanResponderRelease: (event, gestureState) => {
         const currentValue = startPosition.current - gestureState.dy;
         const velocity = -gestureState.vy;
-
+        
         let targetValue;
-
+        
         if (Math.abs(velocity) > 0.5) {
           targetValue = velocity > 0 ? BOTTOM_SHEET_MAX_HEIGHT : BOTTOM_SHEET_MIN_HEIGHT;
         } else if (Math.abs(gestureState.dy) > 50) {
@@ -265,11 +269,11 @@ const routes = () => {
           const midpoint = (BOTTOM_SHEET_MAX_HEIGHT + BOTTOM_SHEET_MIN_HEIGHT) / 2;
           targetValue = currentValue > midpoint ? BOTTOM_SHEET_MAX_HEIGHT : BOTTOM_SHEET_MIN_HEIGHT;
         }
-
+        
         const willExpand = targetValue === BOTTOM_SHEET_MAX_HEIGHT;
         setIsExpanded(willExpand);
         setEnableScrolling(willExpand);
-
+        
         Animated.spring(panY, {
           toValue: targetValue,
           velocity: velocity,
@@ -343,7 +347,7 @@ const routes = () => {
           <Text className="text-3xl text-primary font-bold">Routes</Text>
         </View>
       </View>
-
+     
       <Animated.View
         style={[animatedStyle]}
         className="absolute left-0 right-0 bg-white rounded-t-3xl shadow-lg"
@@ -352,7 +356,7 @@ const routes = () => {
         <View className="items-center py-3" {...panResponder.panHandlers}>
           <View className="w-12 h-1.5 bg-gray-400 rounded-full" />
         </View>
-
+       
         {/* Content with ScrollView */}
         <ScrollView
           ref={scrollViewRef}
@@ -363,10 +367,10 @@ const routes = () => {
         >
           <View className="px-4 pb-6">
             <Text className="text-2xl font-bold text-center mb-4">CEBU CITY ROUTES</Text>
-
+           
             {/* Clear All Routes Button */}
             {visibleRoutes.size > 0 && (
-              <TouchableOpacity
+              <TouchableOpacity 
                 className="bg-gray-500 rounded-2xl p-4 mb-3 flex-row justify-center items-center active:opacity-70"
                 onPress={clearAllRoutes}
               >
@@ -378,10 +382,10 @@ const routes = () => {
             {routesList.map((route) => {
               const isVisible = visibleRoutes.has(route.id);
               return (
-                <TouchableOpacity
-                  key={route.id}
+                <TouchableOpacity 
+                  key={route.id} 
                   className="rounded-2xl p-4 mb-3 flex-row justify-between items-center active:opacity-70"
-                  style={{
+                  style={{ 
                     backgroundColor: isVisible ? route.color : '#E5E7EB',
                     opacity: isVisible ? 1 : 0.6
                   }}
@@ -413,7 +417,7 @@ const routes = () => {
         <View className="flex-1 bg-black/50 justify-center items-center px-6">
           <View className="bg-white rounded-2xl p-6 w-full max-w-sm">
             <View className="items-center mb-4">
-              <View
+              <View 
                 className="rounded-lg px-4 py-2 mb-3"
                 style={{ backgroundColor: selectedRoute?.color }}
               >
@@ -423,7 +427,7 @@ const routes = () => {
                 Route Details
               </Text>
             </View>
-
+            
             <View className="mb-6">
               <Text className="text-lg font-semibold text-gray-700 mb-2">Description:</Text>
               <Text className="text-base text-gray-600 leading-6">
@@ -441,11 +445,11 @@ const routes = () => {
             <View className="mb-6">
               <Text className="text-lg font-semibold text-gray-700 mb-2">Route Information:</Text>
               <Text className="text-base text-gray-600 leading-6">
-                This is a public transportation route serving the Cebu City area.
+                This is a public transportation route serving the Cebu City area. 
                 Please check with local operators for current schedules and fares.
               </Text>
             </View>
-
+            
             <View className="flex-row space-x-3">
               <TouchableOpacity
                 onPress={() => {
@@ -473,8 +477,5 @@ const routes = () => {
     </View>
   );
 };
-  );
-};
 
-export default routes;
 export default routes;

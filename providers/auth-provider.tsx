@@ -55,7 +55,7 @@ export default function AuthProvider({ children }: PropsWithChildren) {
             .single()
 
           if (error) {
-            console.error('Error fetching profile:', error)
+            console.error('Error fetching profiles:', error)
             setProfile(null)
           } else {
             setProfile(data)

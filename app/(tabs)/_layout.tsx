@@ -1,25 +1,12 @@
 import BottomNavigationBar from "@/components/BottomNavigationBar";
 import Header from "@/components/Header";
-import { useRideButton } from "@/contexts/RideButtonContext";
 import { Tabs } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { View } from "react-native";
 
 const _layout = () => {
   const [showBar, setShowBar] = useState(true); // For hiding navigation
   const headerRef = React.useRef<{ hideHeader: () => void; showHeader: () => void }>(null); // For hiding header
-  const { showRideButton } = useRideButton();
-
-  // Sync header/footer visibility with bottom sheet state from context (used on routes screen)
-  useEffect(() => {
-    if (showRideButton) {
-      setShowBar(true);
-      headerRef.current?.showHeader();
-    } else {
-      setShowBar(false);
-      headerRef.current?.hideHeader();
-    }
-  }, [showRideButton]);
 
   return (
       <View style={{ flex: 1 }}>

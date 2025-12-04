@@ -1,5 +1,4 @@
 import { SplashScreenController } from "@/components/splash-screen-controller";
-import { RideButtonProvider } from "@/contexts/RideButtonContext";
 import { useAuthContext } from "@/hooks/use-auth-context";
 import AuthProvider from "@/providers/auth-provider";
 import { Stack } from "expo-router";
@@ -29,13 +28,11 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RideButtonProvider>
         <SafeAreaView className="flex-1 bg-tertiary">
           <StatusBar hidden={false} style='dark'/>
           <SplashScreenController />
           <RootNavigator />
         </SafeAreaView>
-      </RideButtonProvider>
     </AuthProvider>
   );
 }

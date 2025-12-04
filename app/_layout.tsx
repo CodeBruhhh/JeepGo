@@ -8,7 +8,6 @@ import './globals.css';
 
 function RootNavigator() {
   const { isLoggedIn, role } = useAuthContext();
-  const { isLoggedIn, role } = useAuthContext();
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

@@ -1,7 +1,6 @@
 import { citUToEmallRoute } from '@/assets/routes/citu-to-emall';
 import { route01CPrivateToColon } from '@/assets/routes/route-01c-private-to-colon';
-import { useRideButton } from '@/contexts/RideButtonContext';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, PanResponder, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
@@ -24,7 +23,6 @@ const routes = () => {
   const startPosition = useRef(BOTTOM_SHEET_MIN_HEIGHT);
   const scrollViewRef = useRef(null);
   const [enableScrolling, setEnableScrolling] = useState(false);
-  const { setShowRideButton } = useRideButton();
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [showRouteModal, setShowRouteModal] = useState(false);
   const [visibleRoutes, setVisibleRoutes] = useState<Set<number>>(new Set());
@@ -51,6 +49,82 @@ const routes = () => {
     latitude: coord[1] as number,
     longitude: coord[0] as number
   }));
+
+  const route01KWaypoints = route01KUrgelloToParkmall.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  const urgelloStart = route01KUrgelloToParkmall.features[1]?.geometry?.coordinates
+    ? {
+        latitude: route01KUrgelloToParkmall.features[1].geometry.coordinates[1] as number,
+        longitude: route01KUrgelloToParkmall.features[1].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const parkmallEnd = route01KUrgelloToParkmall.features[3]?.geometry?.coordinates
+    ? {
+        latitude: route01KUrgelloToParkmall.features[3].geometry.coordinates[1] as number,
+        longitude: route01KUrgelloToParkmall.features[3].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const route02BWaypoints = route02BCsbtToColon.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  const csbtStart = route02BCsbtToColon.features[2]?.geometry?.coordinates
+    ? {
+        latitude: route02BCsbtToColon.features[2].geometry.coordinates[1] as number,
+        longitude: route02BCsbtToColon.features[2].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const pier3End = route02BCsbtToColon.features[3]?.geometry?.coordinates
+    ? {
+        latitude: route02BCsbtToColon.features[3].geometry.coordinates[1] as number,
+        longitude: route02BCsbtToColon.features[3].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const route03AWaypoints = route03AMaboloToCarbon.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  const maboloStart = route03AMaboloToCarbon.features[1]?.geometry?.coordinates
+    ? {
+        latitude: route03AMaboloToCarbon.features[1].geometry.coordinates[1] as number,
+        longitude: route03AMaboloToCarbon.features[1].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const carbonEnd = route03AMaboloToCarbon.features[3]?.geometry?.coordinates
+    ? {
+        latitude: route03AMaboloToCarbon.features[3].geometry.coordinates[1] as number,
+        longitude: route03AMaboloToCarbon.features[3].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const route03QWaypoints = route03QAyalaToSmCity.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  const ayalaStart = route03QAyalaToSmCity.features[1]?.geometry?.coordinates
+    ? {
+        latitude: route03QAyalaToSmCity.features[1].geometry.coordinates[1] as number,
+        longitude: route03QAyalaToSmCity.features[1].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const smEnd = route03QAyalaToSmCity.features[2]?.geometry?.coordinates
+    ? {
+        latitude: route03QAyalaToSmCity.features[2].geometry.coordinates[1] as number,
+        longitude: route03QAyalaToSmCity.features[2].geometry.coordinates[0] as number
+      }
+    : undefined;
 
   // Extract start and end points for 01C route
   const uscStart = {
@@ -79,33 +153,27 @@ const routes = () => {
       code: '01K',
       description: 'Urgello to Parkmall',
       color: '#4ECDC4',
-      waypoints: [
-        { latitude: 10.3100, longitude: 123.8900 },
-        { latitude: 10.3150, longitude: 123.8950 },
-        { latitude: 10.3200, longitude: 123.9000 }, // End point
-      ]
+      waypoints: route01KWaypoints,
+      startPoint: urgelloStart,
+      endPoint: parkmallEnd
     },
     {
       id: 3,
       code: '02B',
       description: 'CSBT to Colon',
       color: '#FFD93D',
-      waypoints: [
-        { latitude: 10.3050, longitude: 123.8800 },
-        { latitude: 10.3075, longitude: 123.8850 },
-        { latitude: 10.3100, longitude: 123.8900 }, // End point
-      ]
+      waypoints: route02BWaypoints,
+      startPoint: csbtStart,
+      endPoint: pier3End
     },
     {
       id: 4,
       code: '03A',
       description: 'Mabolo to Carbon',
       color: '#95E1D3',
-      waypoints: [
-        { latitude: 10.3300, longitude: 123.8700 },
-        { latitude: 10.3250, longitude: 123.8750 },
-        { latitude: 10.3200, longitude: 123.8800 }, // End point
-      ]
+      waypoints: route03AWaypoints,
+      startPoint: maboloStart,
+      endPoint: carbonEnd
     },
     {
       id: 5,
@@ -126,6 +194,15 @@ const routes = () => {
       waypoints: citUToEmallWaypoints,
       startPoint: citUStart,
       endPoint: emallEnd
+    },
+    {
+      id: 7,
+      code: '03Q',
+      description: 'Ayala to SM City Cebu',
+      color: '#6C63FF',
+      waypoints: route03QWaypoints,
+      startPoint: ayalaStart,
+      endPoint: smEnd
     },
   ];
 
@@ -208,13 +285,6 @@ const routes = () => {
     height: panY,
     bottom: 0,
   };
-
-  // Ensure header/footer are restored when leaving this screen
-  useEffect(() => {
-    return () => {
-      setShowRideButton(true);
-    };
-  }, [setShowRideButton]);
 
   return (
     <View className="flex-1">

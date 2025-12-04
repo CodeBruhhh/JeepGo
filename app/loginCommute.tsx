@@ -1,14 +1,17 @@
+
 import { supabase } from '@/services/supabase';
 import { GoogleSignin, GoogleSigninButton, statusCodes } from '@react-native-google-signin/google-signin';
+import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function LogInScreen() {
 
-  // Login form states
+   const { role } = useLocalSearchParams(); // "driver" or "commuter"
+  
+  // Login form states 
   const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-
+  const [loginPassword, setLoginPassword] = useState('')
   // Register form states
   const [registerFullName, setRegisterFullName] = useState('');
   const [registerEmail, setRegisterEmail] = useState('');
@@ -92,7 +95,7 @@ export default function LogInScreen() {
 
       console.log('🔹 Launching Google Sign-In...');
       const userInfo = await GoogleSignin.signIn();
-      console.log('✅ Google Sign-In response:');
+      console.log('✅ Google Sign-In response:', JSON.stringify(userInfo, null, 2));
 
       // Attempt to extract the ID token
       const idToken = (userInfo as any).idToken ?? (userInfo.data?.idToken ?? null);
@@ -109,7 +112,7 @@ export default function LogInScreen() {
       if (error) {
         console.error('❌ Supabase sign-in error:', error);
       } else {
-        console.log('✅ Supabase login success:');
+        console.log('✅ Supabase login success:', data);
       }
 
     } catch (error: any) {
@@ -125,16 +128,156 @@ export default function LogInScreen() {
     }
   };
 
-  
-
 
   return (
-    <View className="flex-1 justify-center bg-secondary p-5">
+<View
+  className="flex-1 justify-center p-5"
+  style={{ backgroundColor: "#f8efd9ff" }}
+>
+
+      {/* BACKGROUND DESIGNS */}
+
+
+          <Image
+          source={require("../assets/images/Commute_test.png")}
+          style={{
+            position: "absolute",
+            top: "-10%",
+            left: "-40%",
+            width: 450,
+            height: 450,
+            zIndex: 0,
+            transform: [{ rotate: "-30deg" }],
+            shadowColor: "#ffffffff",
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 0 },
+            tintColor: "#fffbf1ff",
+            }}
+          resizeMode="contain"
+          />
+
+          <Image
+          source={require("../assets/images/Two-wheel.png")}
+          style={{
+            position: "absolute",
+            bottom: "-10%",
+            right: "0%",
+            width: 400,
+            height: 400,
+          zIndex: 0,
+            transform: [{ rotate: "-30deg" }],
+            shadowColor: "#ffffffff",
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 0 },
+            tintColor: "#fffbf1ff",
+          }}
+          resizeMode="contain"
+          />
+
+      <Image
+          source={require("../assets/images/Tranportation.png")}
+          style={{
+            position: "absolute",
+            top: "15%",
+            right: "-70%",
+            width: 400,
+            height: 400,
+           zIndex: 0,
+            transform: [{ rotate: "-30deg" }],
+            shadowColor: "#ffffffff",
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 0 },
+            tintColor: "#fffbf1ff",
+          }}
+          resizeMode="contain"
+          />
+
+          
+      <Image
+          source={require("../assets/images/Run.png")}
+          style={{
+            position: "absolute",
+            bottom: "-16%",
+            right: "-27%",
+            width: 325,
+            height: 325,
+           zIndex: 1,
+            transform: [{ rotate: "-30deg" }],
+            shadowColor: "#ffffffff",
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 0 },
+            tintColor: "#fffbf1ff",
+          }}
+          resizeMode="contain"
+          />
+
+      <Image
+          source={require("../assets/images/Jeepgo_logo2.png")}
+          style={{
+            position: "absolute",
+            top: "-5%",
+            right: "51%",
+            width: 250,
+            height: 250,
+           zIndex: 1,
+            shadowColor: "#ffffffff",
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 0 },
+          }}
+          resizeMode="contain"
+          />
+
+     {/* TOP RIGHT CIRCLE  */}
+      <View className="
+      absolute
+       z - 0
+       right-[-60px]
+       top-[-180px]
+       w-[300px]  
+       h-[300px] 
+       bg-[#C4B5D8] 
+       rounded-full 
+       opacity-100" 
+       />
+
+       {/* TOP LEFT CIRCLE  */}
+      <View className="
+      absolute
+       z - 0
+       left-[-90px]
+       top-[-130px]
+       w-[330px] 
+       h-[330px] 
+       bg-[#C4B5D8] 
+       rounded-full 
+       opacity-100" 
+       />
+
+       {/* BOTTOM RIGHT CIRCLE */}
+      <View className="
+      absolute
+       z - 0
+       right-[-120px]
+       bottom-[-150px]
+       w-[350px] 
+       h-[350px] 
+       bg-[#C4B5D8] 
+       rounded-full 
+       opacity-100" 
+       />
+
+
       {/* Tabs */}
-      <View className="flex-row mb-6 justify-center">
+      <View className="flex-row mb-6 mt-10 ml-11 justify-start">
+        
         <TouchableOpacity
-          className={`px-5 py-2 rounded-full ${
-            activeTab === "login" ? "bg-primary" : "bg-gray-300"
+          className={`px-6 py-2 rounded-full ${
+            activeTab === "login" ? "bg-primary" : "bg-[#C4B5D8]"
           }`}
           onPress={() => setActiveTab("login")}
         >
@@ -155,30 +298,31 @@ export default function LogInScreen() {
       {activeTab === "login" ? (
         
         //Log in page
-        <View className='items-center gap-4'>
+        <View className='items-center gap-2'>
+
+          <Text className='text-3xl font-bold'>Welcome!</Text>
+          <Text className='text-sm text-[#FFBCBC] font-bold leading-none'>Enter your details below</Text>
           
-          <Text className='text-4xl font-bold mb-4'>Log In</Text>
-          {/* email */}
           <TextInput 
-          placeholder=' Email...' 
-          placeholderTextColor="#3B3B3B"
+          placeholder=" Email..." 
+          placeholderTextColor="#fff7fdff"
           value={loginEmail}
           onChangeText={setLoginEmail}
-          className='w-[300] h-[50] bg-highlight border' 
+          className="input-field"
           keyboardType="email-address"
           textContentType="username"
           autoComplete="email"
           autoCapitalize="none"
           />
+
           {/* password */}
           <TextInput 
           placeholder=' Password...' 
-          placeholderTextColor="#3B3B3B"
-          className='w-[300] h-[50] bg-highlight border' 
+          placeholderTextColor="#fff7fdff"
           value={loginPassword}
           onChangeText={setLoginPassword}
+          className="input-field"
           secureTextEntry
-          style={{ color: 'black' }}
           textContentType="password"
           autoComplete="password"
           autoCapitalize="none"
@@ -186,12 +330,12 @@ export default function LogInScreen() {
 
           <View className='w-[300]'>
             <Pressable onPress={() => setShowResetModal(true)}>
-              <Text className="text-blue-500 ">Forgot Password?</Text>
+              <Text className="text-[#4C0078] ">Forgot Password?</Text>
             </Pressable>
           </View>
 
-          <Pressable disabled={loading} onPress={handleLogin} className='w-[300] h-[50] bg-tertiary justify-center items-center border rounded-xl'>
-            <Text className='text-xl font-bold'>{loading ? 'Logging in...' : 'Log In'}</Text>
+          <Pressable disabled={loading} onPress={handleLogin} className='w-[300] h-[50] bg-[#965A9F] border-[#965A9F] justify-center items-center border rounded-full'>
+            <Text className='text-xl text-white font-bold '>{loading ? 'Logging in...' : 'Log In'}</Text>
           </Pressable>
 
           <Text>OR</Text>
@@ -204,20 +348,22 @@ export default function LogInScreen() {
         </View>
         ) : (
 
+
           //Register Page
-          <View className="w-full items-center gap-4">
-            <Text className='text-4xl font-bold mb-4'>Register</Text>
+          <View className="w-full items-center gap-2">
+            <Text className='text-3xl font-bold'>Register</Text>
+            <Text className='font-bold text-[#FFBCBC]'>Create your account!</Text>
             <TextInput
               placeholder="Enter Full Name"
-              placeholderTextColor="#3B3B3B"
-              className='w-[300] h-[50] bg-highlight border'
+              placeholderTextColor="#ffffffff"
+              className= "input-field"
               value={registerFullName}
               onChangeText={setRegisterFullName}
             />
             <TextInput
               placeholder="Enter Email"
-              placeholderTextColor="#3B3B3B"
-              className='w-[300] h-[50] bg-highlight border'
+              placeholderTextColor="#ffffffff"
+              className= "input-field"
               value={registerEmail}
               onChangeText={setRegisterEmail}
               keyboardType="email-address"
@@ -227,8 +373,8 @@ export default function LogInScreen() {
             />
             <TextInput
               placeholder="Enter Password"
-              placeholderTextColor="#3B3B3B"
-              className='w-[300] h-[50] bg-highlight border'
+              placeholderTextColor="#ffffffff"
+              className="input-field"
               value={registerPassword}
               onChangeText={setRegisterPassword}
               secureTextEntry
@@ -237,8 +383,8 @@ export default function LogInScreen() {
               autoComplete="password"
               autoCapitalize="none"
             />
-            <Pressable disabled={loading} onPress={handleRegister} className='w-[300] h-[50] bg-tertiary justify-center items-center border rounded-xl'>
-            <Text className='text-xl font-bold'>{loading ? 'Registering...' : 'Register'}</Text>
+            <Pressable disabled={loading} onPress={handleRegister} className='w-[300] h-[50] bg-[#965A9F] border-[#965A9F] justify-center items-center border rounded-full'>
+            <Text className='text-xl text-white font-bold'>{loading ? 'Registering...' : 'Register'}</Text>
             </Pressable>
 
             <Text>OR</Text>

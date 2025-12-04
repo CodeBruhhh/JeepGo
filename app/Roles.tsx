@@ -80,7 +80,7 @@ export default function RolesScreen() {
       <TouchableOpacity
         className="justify-center items-center bg-highlight rounded-2xl mb-5 p-5"
         style={{ height: 250, width: "95%" }}
-        onPress={() => router.push("/loginCommute?role=commuter")}
+        onPress={() => router.push("/login_passenger?role=passenger")}
       >
         <Image
           source={require("../assets/images/Run.png")}
@@ -93,7 +93,7 @@ export default function RolesScreen() {
       <TouchableOpacity
         className="justify-center items-center bg-highlight rounded-2xl"
         style={{ height: 250, width: "95%" }}
-        onPress={() => router.push("/loginDriver?role=driver")}
+        onPress={() => router.push("/login_driver?role=driver")}
       >
         <Image
           source={require("../assets/images/Steering.png")}

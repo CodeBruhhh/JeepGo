@@ -1,4 +1,3 @@
-
 import { supabase } from '@/services/supabase';
 import { GoogleSignin, GoogleSigninButton, statusCodes } from '@react-native-google-signin/google-signin';
 import { useLocalSearchParams } from "expo-router";
@@ -7,7 +6,7 @@ import { Alert, Image, Modal, Pressable, Text, TextInput, TouchableOpacity, View
 
 export default function LogInScreen() {
 
-   const { role } = useLocalSearchParams(); // "driver" or "commuter"
+   const { role } = useLocalSearchParams(); // "driver" or "pasenger"
   
   // Login form states 
   const [loginEmail, setLoginEmail] = useState('');
@@ -60,9 +59,30 @@ export default function LogInScreen() {
       options: { data: { full_name: registerFullName } },
     });
 
-    if (error) Alert.alert('Sign-up Error', error.message);
-    else Alert.alert('Success', 'Check your email to confirm your account.');
+    if (error) {
+      Alert.alert('Sign-up Error', error.message);
+      setLoading(false);
+      return;
+    }
 
+    // Insert if sign-up succeeded
+    if (data.user) {
+      const { error: insertError } = await supabase
+        .from('user_info')                   
+        .insert({
+          user_id: data.user.id,            
+          full_name: registerFullName,
+          email: registerEmail,
+          role: "driver"
+        });
+
+      if (insertError) {
+        Alert.alert('DB Insert Error', insertError.message);
+        console.log(insertError);
+      }
+    }
+
+    Alert.alert('Success', 'Check your email to confirm your account.');
     setLoading(false);
   }
 
@@ -113,6 +133,33 @@ export default function LogInScreen() {
         console.error('❌ Supabase sign-in error:', error);
       } else {
         console.log('✅ Supabase login success:', data);
+        if (data.user) {
+          const { user } = data;
+
+          const fullName =
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            null;
+
+          const email = user.email;
+
+          // Insert into database table
+          const { error: insertError } = await supabase
+            .from('user_info')
+            .insert({
+              user_id: user.id,
+              full_name: fullName,
+              email: email,
+              role: "passenger",
+              photo_url: user.user_metadata.picture
+            });
+
+          if (insertError) {
+            console.error('❌ Failed to insert profile:', insertError);
+          } else {
+            console.log('✅ Profile inserted into database!');
+          }
+        }
       }
 
     } catch (error: any) {
@@ -132,7 +179,7 @@ export default function LogInScreen() {
   return (
 <View
   className="flex-1 justify-center p-5"
-  style={{ backgroundColor: "#f8efd9ff" }}
+  style={{ backgroundColor: "#fdf5c6ff" }}
 >
 
       {/* BACKGROUND DESIGNS */}
@@ -197,7 +244,7 @@ export default function LogInScreen() {
 
           
       <Image
-          source={require("../assets/images/Run.png")}
+          source={require("../assets/images/Steering.png")}
           style={{
             position: "absolute",
             bottom: "-16%",
@@ -240,7 +287,7 @@ export default function LogInScreen() {
        top-[-180px]
        w-[300px]  
        h-[300px] 
-       bg-[#C4B5D8] 
+       bg-[#E4D685] 
        rounded-full 
        opacity-100" 
        />
@@ -253,7 +300,7 @@ export default function LogInScreen() {
        top-[-130px]
        w-[330px] 
        h-[330px] 
-       bg-[#C4B5D8] 
+       bg-[#E4D685] 
        rounded-full 
        opacity-100" 
        />
@@ -266,18 +313,17 @@ export default function LogInScreen() {
        bottom-[-150px]
        w-[350px] 
        h-[350px] 
-       bg-[#C4B5D8] 
+       bg-[#E4D685] 
        rounded-full 
        opacity-100" 
        />
 
 
       {/* Tabs */}
-      <View className="flex-row mb-6 mt-10 ml-11 justify-start">
-        
+       <View className="flex-row mb-6 mt-10 ml-11 justify-start">
         <TouchableOpacity
           className={`px-6 py-2 rounded-full ${
-            activeTab === "login" ? "bg-primary" : "bg-[#C4B5D8]"
+            activeTab === "login" ? "bg-[#8593E4]" : "bg-[#C4B5D8]"
           }`}
           onPress={() => setActiveTab("login")}
         >
@@ -286,7 +332,7 @@ export default function LogInScreen() {
 
         <TouchableOpacity
           className={`px-5 py-2 rounded-full ml-3 ${
-            activeTab === "register" ? "bg-primary" : "bg-gray-300"
+            activeTab === "register" ? "bg-[#8593E4]" : "bg-gray-300"
           }`}
           onPress={() => setActiveTab("register")}
         >
@@ -305,10 +351,10 @@ export default function LogInScreen() {
           
           <TextInput 
           placeholder=" Email..." 
-          placeholderTextColor="#fff7fdff"
+          placeholderTextColor="#000000ff"
           value={loginEmail}
           onChangeText={setLoginEmail}
-          className="input-field"
+          className="input-field2"
           keyboardType="email-address"
           textContentType="username"
           autoComplete="email"
@@ -318,10 +364,10 @@ export default function LogInScreen() {
           {/* password */}
           <TextInput 
           placeholder=' Password...' 
-          placeholderTextColor="#fff7fdff"
+          placeholderTextColor="#000000ff"
           value={loginPassword}
           onChangeText={setLoginPassword}
-          className="input-field"
+          className="input-field2"
           secureTextEntry
           textContentType="password"
           autoComplete="password"
@@ -334,7 +380,7 @@ export default function LogInScreen() {
             </Pressable>
           </View>
 
-          <Pressable disabled={loading} onPress={handleLogin} className='w-[300] h-[50] bg-[#965A9F] border-[#965A9F] justify-center items-center border rounded-full'>
+          <Pressable disabled={loading} onPress={handleLogin} className='w-[300] h-[50] bg-[#8593E4] border-[#8593E4] justify-center items-center border rounded-full'>
             <Text className='text-xl text-white font-bold '>{loading ? 'Logging in...' : 'Log In'}</Text>
           </Pressable>
 
@@ -355,15 +401,15 @@ export default function LogInScreen() {
             <Text className='font-bold text-[#FFBCBC]'>Create your account!</Text>
             <TextInput
               placeholder="Enter Full Name"
-              placeholderTextColor="#ffffffff"
-              className= "input-field"
+              placeholderTextColor="#000000ff"
+              className= "input-field2"
               value={registerFullName}
               onChangeText={setRegisterFullName}
             />
             <TextInput
               placeholder="Enter Email"
-              placeholderTextColor="#ffffffff"
-              className= "input-field"
+              placeholderTextColor="#000000ff"
+              className= "input-field2"
               value={registerEmail}
               onChangeText={setRegisterEmail}
               keyboardType="email-address"
@@ -373,8 +419,8 @@ export default function LogInScreen() {
             />
             <TextInput
               placeholder="Enter Password"
-              placeholderTextColor="#ffffffff"
-              className="input-field"
+              placeholderTextColor="#000000ff"
+              className="input-field2"
               value={registerPassword}
               onChangeText={setRegisterPassword}
               secureTextEntry
@@ -383,7 +429,7 @@ export default function LogInScreen() {
               autoComplete="password"
               autoCapitalize="none"
             />
-            <Pressable disabled={loading} onPress={handleRegister} className='w-[300] h-[50] bg-[#965A9F] border-[#965A9F] justify-center items-center border rounded-full'>
+            <Pressable disabled={loading} onPress={handleRegister} className='w-[300] h-[50] bg-[#8593E4] border-[#8593E4] justify-center items-center border rounded-full'>
             <Text className='text-xl text-white font-bold'>{loading ? 'Registering...' : 'Register'}</Text>
             </Pressable>
 

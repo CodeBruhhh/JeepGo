@@ -7,20 +7,28 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import './globals.css';
 
 function RootNavigator() {
-  const { isLoggedIn, role } = useAuthContext();
+  const { isLoggedIn, role, isLoading } = useAuthContext();
+
+  if (isLoading) return null; // or splash screen
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
 
-
-      <Stack.Protected guard={isLoggedIn}>
-        <Stack.Screen name="(tabs)" />
+      {/* Passenger Tabs */}
+      <Stack.Protected guard={isLoggedIn && role === 'passenger'}>
+        <Stack.Screen name="(passenger_tabs)" />
       </Stack.Protected>
 
+      {/* Driver Tabs */}
+      <Stack.Protected guard={isLoggedIn && role === 'driver'}>
+        <Stack.Screen name="(driver_tabs)" />
+      </Stack.Protected>
+
+      {/* Auth / Roles */}
       <Stack.Protected guard={!isLoggedIn}>
         <Stack.Screen name="Roles" />
-        <Stack.Screen name="loginCommute" />
-        <Stack.Screen name="loginDriver" />
+        <Stack.Screen name="login_passenger" />
+        <Stack.Screen name="login_driver" />
       </Stack.Protected>
 
       <Stack.Screen name="+not-found" />

@@ -224,7 +224,7 @@ const ride = () => {
 
   const navigateToMap = (name: string, lat: number, lng: number) => {
     router.push({
-      pathname: '/(tabs)/map_screen',
+      pathname: '/(passenger_tabs)/map_screen',
       params: {
         lat: lat.toString(),
         lng: lng.toString(),

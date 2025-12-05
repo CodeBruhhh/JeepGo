@@ -24,6 +24,6 @@ export default function SignOutButton() {
   }}
   className='w-[80%] h-[50] bg-red-500 justify-center items-center rounded-2xl'
   >
-    <Text className='text-xl font-bold text-white'>Sign Out</Text>
+    <Text className='font-bold text-white'>Sign Out</Text>
   </TouchableOpacity>
 }

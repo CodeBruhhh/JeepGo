@@ -30,8 +30,7 @@ expo install react-native-maps expo-location
 
 npx expo install expo-crypto
 
-npx react-native-asset
-
+npx expo install react-native-asset expo-image-picker
 
 # To Run Project
 

@@ -68,7 +68,7 @@ export default function Index() {
           <Text className="text-gray-600">No Photo</Text>
         </View>
       )}
-
+ 
       <Text className="text-2xl text-primary font-bold text-center">
         {profile.user_metadata.full_name}
       </Text>

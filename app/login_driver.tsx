@@ -6,7 +6,7 @@ import { Alert, Image, Modal, Pressable, Text, TextInput, TouchableOpacity, View
 
 export default function LogInScreen() {
 
-   const { role } = useLocalSearchParams(); // "driver" or "pasenger"
+   const { role } = useLocalSearchParams(); // "driver" or "passenger"
   
   // Login form states 
   const [loginEmail, setLoginEmail] = useState('');
@@ -35,14 +35,39 @@ export default function LogInScreen() {
       email: loginEmail,
       password: loginPassword,
     });
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       Alert.alert('Login Failed', error.message);
-    } else {
-      Alert.alert('Success', `Welcome ${data.user.app_metadata.full_name}`);
-      
+      return;
     }
+
+    // Check user's role in database
+    const { data: userInfo, error: roleError } = await supabase
+      .from('user_info')
+      .select('role')
+      .eq('user_id', data.user.id)
+      .single();
+
+    setLoading(false);
+
+    if (roleError) {
+      await supabase.auth.signOut();
+      Alert.alert('Error', 'Failed to verify user role.');
+      return;
+    }
+
+    // Verify role matches the screen role
+    if (userInfo.role !== role) {
+      await supabase.auth.signOut();
+      Alert.alert(
+        'Access Denied',
+        `This account is registered as a ${userInfo.role}. Please use the ${userInfo.role} login.`
+      );
+      return;
+    }
+
+    Alert.alert('Success', `Welcome ${data.user.user_metadata?.full_name || 'back'}!`);
   };
 
   async function handleRegister() {
@@ -65,20 +90,29 @@ export default function LogInScreen() {
       return;
     }
 
-    // Insert if sign-up succeeded
+    // Insert with the role from URL params
     if (data.user) {
       const { error: insertError } = await supabase
-        .from('user_info')                   
+        .from('user_info')
         .insert({
-          user_id: data.user.id,            
+          user_id: data.user.id,
           full_name: registerFullName,
           email: registerEmail,
-          role: "driver"
+          role: role || "driver", // Use role from params
         });
 
       if (insertError) {
         Alert.alert('DB Insert Error', insertError.message);
         console.log(insertError);
+      }
+
+      // If driver, also insert into driver table
+      if (role === "driver") {
+        await supabase
+          .from('driver')
+          .insert({
+            driver_id: data.user.id
+          });
       }
     }
 
@@ -117,7 +151,6 @@ export default function LogInScreen() {
       const userInfo = await GoogleSignin.signIn();
       console.log('✅ Google Sign-In response:', JSON.stringify(userInfo, null, 2));
 
-      // Attempt to extract the ID token
       const idToken = (userInfo as any).idToken ?? (userInfo.data?.idToken ?? null);
       console.log('🧾 Extracted ID Token:', idToken ? '✅ FOUND' : '❌ MISSING');
 
@@ -131,35 +164,86 @@ export default function LogInScreen() {
 
       if (error) {
         console.error('❌ Supabase sign-in error:', error);
-      } else {
-        console.log('✅ Supabase login success:', data);
-        if (data.user) {
-          const { user } = data;
+        return;
+      }
 
-          const fullName =
-            user.user_metadata?.full_name ||
-            user.user_metadata?.name ||
-            null;
+      console.log('✅ Supabase login success:', data);
+      if (data.user) {
+        const { user } = data;
 
-          const email = user.email;
+        // Check if user already exists
+        const { data: existingUser, error: checkError } = await supabase
+          .from('user_info')
+          .select('user_id, role')
+          .eq('user_id', user.id)
+          .single();
 
-          // Insert into database table
-          const { error: insertError } = await supabase
-            .from('user_info')
+        if (checkError && checkError.code !== 'PGRST116') {
+          console.error('❌ Failed to check existing user:', checkError);
+          await supabase.auth.signOut();
+          Alert.alert('Error', 'Failed to verify user information.');
+          return;
+        }
+
+        // If user exists, verify role matches
+        if (existingUser) {
+          console.log('ℹ️ User already exists, verifying role...');
+          
+          if (existingUser.role !== role) {
+            await supabase.auth.signOut();
+            Alert.alert(
+              'Access Denied',
+              `This Google account is registered as a ${existingUser.role}. Please use the ${existingUser.role} login.`
+            );
+            return;
+          }
+          
+          console.log('✅ Role verified, login successful!');
+          Alert.alert('Success', 'Welcome back!');
+          return;
+        }
+
+        // User doesn't exist, create new account with current role
+        const fullName =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          null;
+
+        const email = user.email;
+
+        // Insert into user_info table with role from params
+        const { error: insertError } = await supabase
+          .from('user_info')
+          .insert({
+            user_id: user.id,
+            full_name: fullName,
+            email: email,
+            role: role || "driver",
+            photo_url: user.user_metadata.picture
+          });
+
+        if (insertError) {
+          console.error('❌ Failed to insert user_info:', insertError);
+          await supabase.auth.signOut();
+          Alert.alert('Error', 'Failed to create user profile.');
+          return;
+        }
+
+        // If driver, also insert into driver table
+        if (role === "driver") {
+          const { error: driverError } = await supabase
+            .from('driver')
             .insert({
-              user_id: user.id,
-              full_name: fullName,
-              email: email,
-              role: "passenger",
-              photo_url: user.user_metadata.picture
+              driver_id: user.id
             });
 
-          if (insertError) {
-            console.error('❌ Failed to insert profile:', insertError);
-          } else {
-            console.log('✅ Profile inserted into database!');
+          if (driverError) {
+            console.error('❌ Failed to insert driver:', driverError);
           }
         }
+
+        console.log('✅ User and profile created!');
+        Alert.alert('Success', 'Account created successfully!');
       }
 
     } catch (error: any) {
@@ -174,7 +258,6 @@ export default function LogInScreen() {
       }
     }
   };
-
 
   return (
 <View
@@ -262,22 +345,23 @@ export default function LogInScreen() {
           resizeMode="contain"
           />
 
-      <Image
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: "-5%",
+          right: "51%",
+          width: 250,
+          height: 250,
+          zIndex: 1,
+        }}
+      >
+        <Image
           source={require("../assets/images/Jeepgo_logo2.png")}
-          style={{
-            position: "absolute",
-            top: "-5%",
-            right: "51%",
-            width: 250,
-            height: 250,
-           zIndex: 1,
-            shadowColor: "#ffffffff",
-            shadowOpacity: 0.3,
-            shadowRadius: 4,
-            shadowOffset: { width: 0, height: 0 },
-          }}
+          style={{ width: 250, height: 250 }}
           resizeMode="contain"
-          />
+        />
+      </View>
 
      {/* TOP RIGHT CIRCLE  */}
       <View className="
@@ -390,6 +474,7 @@ export default function LogInScreen() {
             size={GoogleSigninButton.Size.Wide}
             color={GoogleSigninButton.Color.Dark}
             onPress={onGoogleSignInPress}
+            style = {{zIndex:2}}
           />
         </View>
         ) : (
@@ -439,6 +524,7 @@ export default function LogInScreen() {
               size={GoogleSigninButton.Size.Wide}
               color={GoogleSigninButton.Color.Dark}
               onPress={onGoogleSignInPress}
+              style = {{zIndex:2}}
             />
         </View>
       )}

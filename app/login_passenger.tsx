@@ -36,15 +36,42 @@ export default function LogInScreen() {
       email: loginEmail,
       password: loginPassword,
     });
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       Alert.alert('Login Failed', error.message);
-    } else {
-      Alert.alert('Success', `Welcome ${data.user.app_metadata.full_name}`);
+      return;
     }
+
+    // Check user's role in database
+    const { data: userInfo, error: roleError } = await supabase
+      .from('user_info')
+      .select('role')
+      .eq('user_id', data.user.id)
+      .single();
+
+    setLoading(false);
+
+    if (roleError) {
+      await supabase.auth.signOut();
+      Alert.alert('Error', 'Failed to verify user role.');
+      return;
+    }
+
+    // Verify role matches the screen role
+    if (userInfo.role !== role) {
+      await supabase.auth.signOut();
+      Alert.alert(
+        'Access Denied',
+        `This account is registered as a ${userInfo.role}. Please use the ${userInfo.role} login.`
+      );
+      return;
+    }
+
+    Alert.alert('Success', `Welcome ${data.user.user_metadata?.full_name || 'back'}!`);
   };
 
+  // Updated handleRegister with role parameter
   async function handleRegister() {
     if (!registerEmail || !registerPassword || !registerFullName) {
       Alert.alert('Error', 'All fields are required.');
@@ -65,20 +92,29 @@ export default function LogInScreen() {
       return;
     }
 
-    // Insert if sign-up succeeded
+    // Insert with the role from URL params
     if (data.user) {
       const { error: insertError } = await supabase
-        .from('user_info')                   
+        .from('user_info')
         .insert({
-          user_id: data.user.id,            
+          user_id: data.user.id,
           full_name: registerFullName,
           email: registerEmail,
-          role: "passenger"
+          role: role || "passenger", // Use role from params
         });
 
       if (insertError) {
         Alert.alert('DB Insert Error', insertError.message);
         console.log(insertError);
+      }
+
+      // If passenger, also insert into passengers table
+      if (role === "passenger") {
+        await supabase
+          .from('passengers')
+          .insert({
+            passenger_id: data.user.id
+          });
       }
     }
 
@@ -117,7 +153,6 @@ export default function LogInScreen() {
       const userInfo = await GoogleSignin.signIn();
       console.log('✅ Google Sign-In response:', JSON.stringify(userInfo, null, 2));
 
-      // Attempt to extract the ID token
       const idToken = (userInfo as any).idToken ?? (userInfo.data?.idToken ?? null);
       console.log('🧾 Extracted ID Token:', idToken ? '✅ FOUND' : '❌ MISSING');
 
@@ -131,36 +166,86 @@ export default function LogInScreen() {
 
       if (error) {
         console.error('❌ Supabase sign-in error:', error);
-      } else {
-        console.log('✅ Supabase login success:', data);
+        return;
+      }
 
-        if (data.user) {
-          const { user } = data;
+      console.log('✅ Supabase login success:', data);
+      if (data.user) {
+        const { user } = data;
 
-          const fullName =
-            user.user_metadata?.full_name ||
-            user.user_metadata?.name ||
-            null;
+        // Check if user already exists
+        const { data: existingUser, error: checkError } = await supabase
+          .from('user_info')
+          .select('user_id, role')
+          .eq('user_id', user.id)
+          .single();
 
-          const email = user.email;
+        if (checkError && checkError.code !== 'PGRST116') {
+          console.error('❌ Failed to check existing user:', checkError);
+          await supabase.auth.signOut();
+          Alert.alert('Error', 'Failed to verify user information.');
+          return;
+        }
 
-          // Insert into database table
-          const { error: insertError } = await supabase
-            .from('user_info')
+        // If user exists, verify role matches
+        if (existingUser) {
+          console.log('ℹ️ User already exists, verifying role...');
+          
+          if (existingUser.role !== role) {
+            await supabase.auth.signOut();
+            Alert.alert(
+              'Access Denied',
+              `This Google account is registered as a ${existingUser.role}. Please use the ${existingUser.role} login.`
+            );
+            return;
+          }
+          
+          console.log('✅ Role verified, login successful!');
+          Alert.alert('Success', 'Welcome back!');
+          return;
+        }
+
+        // User doesn't exist, create new account with current role
+        const fullName =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          null;
+
+        const email = user.email;
+
+        // Insert into user_info table with role from params
+        const { error: insertError } = await supabase
+          .from('user_info')
+          .insert({
+            user_id: user.id,
+            full_name: fullName,
+            email: email,
+            role: role || "passenger",
+            photo_url: user.user_metadata.picture
+          });
+
+        if (insertError) {
+          console.error('❌ Failed to insert user_info:', insertError);
+          await supabase.auth.signOut();
+          Alert.alert('Error', 'Failed to create user profile.');
+          return;
+        }
+
+        // If passenger, also insert into passengers table
+        if (role === "passenger") {
+          const { error: passengerError } = await supabase
+            .from('passengers')
             .insert({
-              user_id: user.id,
-              full_name: fullName,
-              email: email,
-              role: "passenger",
-              photo_url: user.user_metadata.picture
+              passenger_id: user.id
             });
 
-          if (insertError) {
-            console.error('❌ Failed to insert profile:', insertError);
-          } else {
-            console.log('✅ Profile inserted into database!');
+          if (passengerError) {
+            console.error('❌ Failed to insert passenger:', passengerError);
           }
         }
+
+        console.log('✅ User and profile created!');
+        Alert.alert('Success', 'Account created successfully!');
       }
 
     } catch (error: any) {
@@ -176,7 +261,6 @@ export default function LogInScreen() {
     }
   };
 
-
   return (
 <View
   className="flex-1 justify-center p-5"
@@ -185,7 +269,7 @@ export default function LogInScreen() {
 
       {/* BACKGROUND DESIGNS */}
 
-
+        
           <Image
           source={require("../assets/images/Commute_test.png")}
           style={{
@@ -232,7 +316,7 @@ export default function LogInScreen() {
             right: "-70%",
             width: 400,
             height: 400,
-           zIndex: 0,
+            zIndex: 0,
             transform: [{ rotate: "-30deg" }],
             shadowColor: "#ffffffff",
             shadowOpacity: 0.3,
@@ -252,7 +336,7 @@ export default function LogInScreen() {
             right: "-27%",
             width: 325,
             height: 325,
-           zIndex: 1,
+            zIndex: 1,
             transform: [{ rotate: "-30deg" }],
             shadowColor: "#ffffffff",
             shadowOpacity: 0.3,
@@ -263,22 +347,23 @@ export default function LogInScreen() {
           resizeMode="contain"
           />
 
-      <Image
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: "-5%",
+          right: "51%",
+          width: 250,
+          height: 250,
+          zIndex: 1,
+        }}
+      >
+        <Image
           source={require("../assets/images/Jeepgo_logo2.png")}
-          style={{
-            position: "absolute",
-            top: "-5%",
-            right: "51%",
-            width: 250,
-            height: 250,
-           zIndex: 1,
-            shadowColor: "#ffffffff",
-            shadowOpacity: 0.3,
-            shadowRadius: 4,
-            shadowOffset: { width: 0, height: 0 },
-          }}
+          style={{ width: 250, height: 250 }}
           resizeMode="contain"
-          />
+        />
+      </View>
 
      {/* TOP RIGHT CIRCLE  */}
       <View className="
@@ -309,7 +394,7 @@ export default function LogInScreen() {
        {/* BOTTOM RIGHT CIRCLE */}
       <View className="
       absolute
-       z - 0
+       z-0
        right-[-120px]
        bottom-[-150px]
        w-[350px] 
@@ -321,10 +406,10 @@ export default function LogInScreen() {
 
 
       {/* Tabs */}
-      <View className="flex-row mb-6 mt-10 ml-11 justify-start">
+      <View className="relative elevation-10 flex-row z-3 mb-6 mt-10 ml-11 justify-start">
         
         <TouchableOpacity
-          className={`px-6 py-2 rounded-full ${
+          className={`px-6 py-2 z-3 rounded-full ${
             activeTab === "login" ? "bg-primary" : "bg-[#C4B5D8]"
           }`}
           onPress={() => setActiveTab("login")}
@@ -333,7 +418,7 @@ export default function LogInScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          className={`px-5 py-2 rounded-full ml-3 ${
+          className={`px-5 py-2 z-3 rounded-full ml-3 ${
             activeTab === "register" ? "bg-primary" : "bg-gray-300"
           }`}
           onPress={() => setActiveTab("register")}
@@ -392,6 +477,7 @@ export default function LogInScreen() {
             size={GoogleSigninButton.Size.Wide}
             color={GoogleSigninButton.Color.Dark}
             onPress={onGoogleSignInPress}
+            style = {{zIndex:2}}
           />
         </View>
         ) : (
@@ -441,6 +527,7 @@ export default function LogInScreen() {
               size={GoogleSigninButton.Size.Wide}
               color={GoogleSigninButton.Color.Dark}
               onPress={onGoogleSignInPress}
+              style = {{zIndex: 2}}
             />
         </View>
       )}

@@ -739,6 +739,111 @@ const RideTracking = () => {
     );
   }
 
+
+
+ // Updates the passenger's location in the database
+ // This allows drivers to see the passenger's real-time location during booking/ride
+  const updatePassengerLocation = async (latitude: number, longitude: number) => {
+    if (!passengerId) {
+      console.log('No passengerId available');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('passengers')
+        .upsert({
+          passenger_id: passengerId,
+          latitude,
+          longitude,
+        }, {
+          onConflict: 'passenger_id'
+        });
+
+      if (error) {
+        console.error('Error updating passenger location:', error);
+      } else {
+        console.log('Passenger location updated:', { latitude, longitude });
+      }
+    } catch (err) {
+      console.error('Passenger location update error:', err);
+    }
+  };
+
+  // Add this useEffect to track and update passenger location continuously
+  useEffect(() => {
+    if (!passengerId) return;
+    
+    let locationSubscription: Location.LocationSubscription | null = null;
+    let hasLiveLocation = false;
+
+    const startLocationTracking = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.log('Location permission not granted, using pickup location from params');
+          
+          // Fallback to pickup location from params if available
+          if (userLat && userLng) {
+            const latitude = Number(userLat);
+            const longitude = Number(userLng);
+            updatePassengerLocation(latitude, longitude);
+            console.log('Updated to pickup location (params):', { latitude, longitude });
+          }
+          return;
+        }
+
+        // Watch position and update every time it changes
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000, // Update every 5 seconds
+            distanceInterval: 10, // Or when moved 10 meters
+          },
+          (location) => {
+            const { latitude, longitude } = location.coords;
+            hasLiveLocation = true;
+            
+            // Update local state
+            setUserLocation({ latitude, longitude });
+            
+            // Update database for driver to see
+            updatePassengerLocation(latitude, longitude);
+          }
+        );
+
+        console.log('Passenger location tracking started');
+      } catch (err) {
+        console.error('Error starting location tracking:', err);
+        
+        // Fallback to pickup location from params if live location fails
+        if (userLat && userLng && !hasLiveLocation) {
+          const latitude = Number(userLat);
+          const longitude = Number(userLng);
+          updatePassengerLocation(latitude, longitude);
+          console.log('Live location failed, using pickup location (params):', { latitude, longitude });
+        }
+      }
+    };
+
+    startLocationTracking();
+
+    // Cleanup function
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+        console.log('Passenger location tracking stopped');
+      }
+    };
+  }, [passengerId, userLat, userLng]);
+
+  // Also update location when ride starts/accepts
+  useEffect(() => {
+    if (rideStatus === 'accepted' && userLocation && passengerId) {
+      updatePassengerLocation(userLocation.latitude, userLocation.longitude);
+    }
+  }, [rideStatus, userLocation, passengerId]);
+
   return (
     <View className="flex-1">
       <MapView

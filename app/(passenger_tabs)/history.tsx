@@ -1,5 +1,6 @@
+import { supabase } from '@/services/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { Layout, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
@@ -21,38 +22,8 @@ interface TravelHistory {
 
 const history = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [travelHistory, setTravelHistory] = useState<TravelHistory[]>([
-    {
-      id: '1',
-      date: 'September 08, 2025',
-      from: 'Parkmall',
-      to: 'Urgello',
-      routeId: '01K',
-      duration: '30 mins',
-      payment: 'P 15.00',
-      distance: '8.2 km',
-      method: 'Gcash',
-      pickupTime: '1:28 PM',
-      arrivalTime: '1:29 PM',
-      passengerType: 'Regular',
-      plateNo: 'ABC 143',
-    },
-    {
-      id: '2',
-      date: 'September 08, 2025',
-      from: 'Capitol',
-      to: 'Ayala',
-      routeId: '12L',
-      duration: '45 mins',
-      payment: 'P 25.00',
-      distance: '10.6 km',
-      method: 'Gcash',
-      pickupTime: '2:15 PM',
-      arrivalTime: '3:00 PM',
-      passengerType: 'Regular',
-      plateNo: 'XYZ 789',
-    },
-  ]);
+  const [travelHistory, setTravelHistory] = useState<TravelHistory[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -64,6 +35,147 @@ const history = () => {
       setExpandedId(null);
     }
   };
+
+  // Load trips for the current user from Supabase
+  useEffect(() => {
+    const loadHistory = async () => {
+      setLoading(true);
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData.user) {
+          console.error('Could not get current user for history', userError);
+          setLoading(false);
+          return;
+        }
+        const userId = userData.user.id;
+
+        // Fetch trips for this passenger
+        const { data: trips, error: tripsError } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('passenger_id', userId)
+          .order('start_time', { ascending: false });
+
+        if (tripsError) {
+          console.error('Error fetching trips:', tripsError);
+          setLoading(false);
+          return;
+        }
+
+        // Enrich each trip with driver and payment info
+        const enriched = await Promise.all(
+          (trips || []).map(async (t: any) => {
+            const tripId = t.trip_id;
+
+            // driver info (jeep code + plate no via drivers -> jeeps)
+            let jeepCode = '—';
+            let plateNo = 'TBD';
+            try {
+              const { data: driverData } = await supabase
+                .from('drivers')
+                .select('driver_id, jeep_id, jeep_code')
+                .eq('driver_id', t.driver_id)
+                .single();
+
+              if (driverData) {
+                jeepCode = driverData.jeep_code ?? '—';
+                if (driverData.jeep_id) {
+                  const { data: jeepData } = await supabase
+                    .from('jeeps')
+                    .select('plate_no')
+                    .eq('jeep_id', driverData.jeep_id)
+                    .single();
+                  plateNo = jeepData?.plate_no ?? 'TBD';
+                }
+              }
+            } catch (e) {
+              console.error('Driver lookup error', e);
+            }
+
+            // payment info
+            let paymentDisplay = 'P 0.00';
+            let paymentMethod = 'Unknown';
+            try {
+              const { data: payment } = await supabase
+                .from('payments')
+                .select('*')
+                .eq('trip_id', tripId)
+                .order('payment_time', { ascending: false })
+                .limit(1)
+                .single();
+
+              if (payment) {
+                // payments.amount stored in cents in some places — normalize
+                const amount = payment.amount ?? 0;
+                const displayAmount = amount > 1000 ? (amount / 100).toFixed(2) : Number(amount).toFixed(2);
+                paymentDisplay = `P ${displayAmount}`;
+                paymentMethod = payment.payment_method ?? 'Unknown';
+              }
+            } catch (e) {
+              // ignore
+            }
+
+            // compute duration
+            let duration = 'N/A';
+            try {
+              if (t.start_time && t.end_time) {
+                const start = new Date(t.start_time);
+                const end = new Date(t.end_time);
+                const mins = Math.round((end.getTime() - start.getTime()) / 60000);
+                duration = `${mins} mins`;
+              } else if (t.start_time) {
+                const start = new Date(t.start_time);
+                const mins = Math.round((Date.now() - start.getTime()) / 60000);
+                duration = `${mins} mins`;
+              }
+            } catch (e) {
+              // ignore
+            }
+
+            // Helper to format date as "Month DD, YYYY"
+            const formatDateFull = (dateStr: string) => {
+              const d = new Date(dateStr);
+              const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+              return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+            };
+
+            // Helper to format time as "H:MM AM/PM"
+            const formatTime = (dateStr: string) => {
+              const d = new Date(dateStr);
+              const hours = d.getHours() % 12 || 12;
+              const mins = String(d.getMinutes()).padStart(2, '0');
+              const ampm = d.getHours() < 12 ? 'AM' : 'PM';
+              return `${hours}:${mins} ${ampm}`;
+            };
+
+            return {
+              id: tripId,
+              date: t.start_time ? formatDateFull(t.start_time) : '',
+              from: t.pick_up ?? 'Unknown',
+              to: t.destination ?? 'Unknown',
+              routeId: jeepCode,
+              duration,
+              payment: paymentDisplay,
+              distance: `${Number(t.distance ?? 0).toFixed(2)} km`,
+              method: paymentMethod,
+              pickupTime: t.start_time ? formatTime(t.start_time) : undefined,
+              arrivalTime: t.end_time ? formatTime(t.end_time) : undefined,
+              passengerType: 'Regular',
+              plateNo,
+            } as TravelHistory;
+          })
+        );
+
+        setTravelHistory(enriched);
+      } catch (err) {
+        console.error('Error loading history:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadHistory();
+  }, []);
 
   const renderStars = (rating: number = 0) => {
     return (

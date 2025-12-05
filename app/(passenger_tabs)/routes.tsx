@@ -8,9 +8,10 @@ import { route03QAyalaToSmCity } from '@/assets/routes/route-03q-ayala-to-sm-cit
 import { route04BLahugToCarbon } from '@/assets/routes/route-04b-lahug-to-carbon';
 import { route04HPlazaHousingToCarbon } from '@/assets/routes/route-04h-plaza-housing-to-carbon';
 import { route04IPlazaHousingToCarbon } from '@/assets/routes/route-04i-plaza-housing-to-carbon';
+import { useNavigationContext } from '@/contexts/NavigationContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
@@ -36,6 +37,20 @@ const RoutesScreen = () => {
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [showRouteModal, setShowRouteModal] = useState(false);
   const [visibleRoutes, setVisibleRoutes] = useState<Set<number>>(new Set());
+  const { setShowBar, headerRef } = useNavigationContext();
+
+  // Show/hide header and footer based on bottom sheet state
+  useEffect(() => {
+    if (isExpanded) {
+      // Hide header and footer when expanded
+      setShowBar(false);
+      headerRef.current?.hideHeader();
+    } else {
+      // Show header and footer when collapsed
+      setShowBar(true);
+      headerRef.current?.showHeader();
+    }
+  }, [isExpanded, setShowBar, headerRef]);
 
   // Extract coordinates from GeoJSON
   const citUToEmallWaypoints = citUToEmallRoute.features[0].geometry.coordinates.map((coord: any) => ({

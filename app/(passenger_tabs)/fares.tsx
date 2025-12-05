@@ -618,7 +618,7 @@ const fares = () => {
     }
   };
 
-  const PickerModal = ({ 
+  const PickerModal = React.memo(({ 
     visible, 
     onClose, 
     options, 
@@ -637,11 +637,13 @@ const fares = () => {
     searchQuery?: string;
     onSearchChange?: (query: string) => void;
   }) => {
+    const [searchInput, setSearchInput] = useState(searchQuery || '');
+    
     const filteredOptions = useMemo(() => {
-      if (!searchQuery) return options;
-      const query = searchQuery.toLowerCase();
+      if (!searchInput) return options;
+      const query = searchInput.toLowerCase();
       return options.filter((option) => option.toLowerCase().includes(query));
-    }, [options, searchQuery]);
+    }, [options, searchInput]);
 
     return (
     <Modal
@@ -664,14 +666,17 @@ const fares = () => {
                   className="bg-highlight border border-gray-300 rounded-lg px-4 py-3 text-dark"
                   placeholder="Search stops..."
                   placeholderTextColor="#9CA3AF"
-                  value={searchQuery || ''}
-                  onChangeText={onSearchChange}
+                  value={searchInput}
+                  onChangeText={setSearchInput}
                 />
               </View>
             )}
           <FlatList
               data={filteredOptions}
-            keyExtractor={(item) => item}
+            keyExtractor={(item, index) => `${item}-${index}`}
+            scrollEnabled={true}
+            nestedScrollEnabled={true}
+            removeClippedSubviews={false}
             renderItem={({ item }) => (
               <TouchableOpacity
                 onPress={() => {
@@ -697,7 +702,16 @@ const fares = () => {
       </View>
     </Modal>
   );
-  };
+  }, (prevProps, nextProps) => {
+    // Custom comparison to prevent unnecessary re-renders
+    return (
+      prevProps.visible === nextProps.visible &&
+      prevProps.selectedValue === nextProps.selectedValue &&
+      prevProps.searchQuery === nextProps.searchQuery &&
+      prevProps.options.length === nextProps.options.length &&
+      prevProps.title === nextProps.title
+    );
+  });
 
   return (
     <ScrollView className="flex-1 bg-secondary" contentContainerStyle={{ paddingBottom: 120 }}>

@@ -4,6 +4,9 @@ import { route01KUrgelloToParkmall } from '@/assets/routes/route-01k-urgello-to-
 import { route02BCsbtToColon } from '@/assets/routes/route-02b-csbt-to-colon';
 import { route03AMaboloToCarbon } from '@/assets/routes/route-03a-mabolo-to-carbon';
 import { route03QAyalaToSmCity } from '@/assets/routes/route-03q-ayala-to-sm-city';
+import { route04BLahugToCarbon } from '@/assets/routes/route-04b-lahug-to-carbon';
+import { route04HPlazaHousingToCarbon } from '@/assets/routes/route-04h-plaza-housing-to-carbon';
+import { route04IPlazaHousingToCarbon } from '@/assets/routes/route-04i-plaza-housing-to-carbon';
 import { useNavigationContext } from '@/contexts/NavigationContext';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, PanResponder, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -145,6 +148,63 @@ const routes = () => {
       }
     : undefined;
 
+  const route04BWaypoints = route04BLahugToCarbon.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  const lahugStart = route04BLahugToCarbon.features[1]?.geometry?.coordinates
+    ? {
+        latitude: route04BLahugToCarbon.features[1].geometry.coordinates[1] as number,
+        longitude: route04BLahugToCarbon.features[1].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const carbonEnd04B = route04BLahugToCarbon.features[2]?.geometry?.coordinates
+    ? {
+        latitude: route04BLahugToCarbon.features[2].geometry.coordinates[1] as number,
+        longitude: route04BLahugToCarbon.features[2].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const route04HWaypoints = route04HPlazaHousingToCarbon.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  const plazaHousingStart = route04HPlazaHousingToCarbon.features[1]?.geometry?.coordinates
+    ? {
+        latitude: route04HPlazaHousingToCarbon.features[1].geometry.coordinates[1] as number,
+        longitude: route04HPlazaHousingToCarbon.features[1].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const carbonEnd04H = route04HPlazaHousingToCarbon.features[2]?.geometry?.coordinates
+    ? {
+        latitude: route04HPlazaHousingToCarbon.features[2].geometry.coordinates[1] as number,
+        longitude: route04HPlazaHousingToCarbon.features[2].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const route04IWaypoints = route04IPlazaHousingToCarbon.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  const plazaHousingStart04I = route04IPlazaHousingToCarbon.features[1]?.geometry?.coordinates
+    ? {
+        latitude: route04IPlazaHousingToCarbon.features[1].geometry.coordinates[1] as number,
+        longitude: route04IPlazaHousingToCarbon.features[1].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const carbonEnd04I = route04IPlazaHousingToCarbon.features[2]?.geometry?.coordinates
+    ? {
+        latitude: route04IPlazaHousingToCarbon.features[2].geometry.coordinates[1] as number,
+        longitude: route04IPlazaHousingToCarbon.features[2].geometry.coordinates[0] as number
+      }
+    : undefined;
+
   // Extract start and end points for 01C route
   const uscStart = {
     latitude: route01CPrivateToColon.features[1].geometry.coordinates[1] as number,
@@ -156,7 +216,7 @@ const routes = () => {
     longitude: route01CPrivateToColon.features[3].geometry.coordinates[0] as number
   };
   
-  // Define routes with their waypoints
+  // Define routes with their waypoints (ordered by route code)
   const routesList = [
     { 
       id: 1, 
@@ -194,8 +254,44 @@ const routes = () => {
       startPoint: maboloStart,
       endPoint: carbonEnd
     },
+    {
+      id: 5,
+      code: '03Q',
+      description: 'Ayala to SM City Cebu',
+      color: '#6C63FF',
+      waypoints: route03QWaypoints,
+      startPoint: ayalaStart,
+      endPoint: smEnd
+    },
     { 
-      id: 5, 
+      id: 6, 
+      code: '04B', 
+      description: 'Lahug to Carbon',
+      color: '#9B59B6',
+      waypoints: route04BWaypoints,
+      startPoint: lahugStart,
+      endPoint: carbonEnd04B
+    },
+    { 
+      id: 7, 
+      code: '04H', 
+      description: 'Plaza Housing to Carbon',
+      color: '#E74C3C',
+      waypoints: route04HWaypoints,
+      startPoint: plazaHousingStart,
+      endPoint: carbonEnd04H
+    },
+    { 
+      id: 8, 
+      code: '04I', 
+      description: 'Plaza Housing to Carbon',
+      color: '#F39C12',
+      waypoints: route04IWaypoints,
+      startPoint: plazaHousingStart04I,
+      endPoint: carbonEnd04I
+    },
+    { 
+      id: 9, 
       code: '06B', 
       description: 'Talamban to Colon',
       color: '#A8E6CF',
@@ -206,22 +302,13 @@ const routes = () => {
       ]
     },
     { 
-      id: 6, 
+      id: 10, 
       code: '69B', 
       description: 'CIT-U to Emall',
       color: '#FF8B94',
       waypoints: citUToEmallWaypoints,
       startPoint: citUStart,
       endPoint: emallEnd
-    },
-    {
-      id: 7,
-      code: '03Q',
-      description: 'Ayala to SM City Cebu',
-      color: '#6C63FF',
-      waypoints: route03QWaypoints,
-      startPoint: ayalaStart,
-      endPoint: smEnd
     },
   ];
 

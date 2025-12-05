@@ -7,6 +7,10 @@ import { route03QAyalaToSmCity } from '@/assets/routes/route-03q-ayala-to-sm-cit
 import { route04BLahugToCarbon } from '@/assets/routes/route-04b-lahug-to-carbon';
 import { route04HPlazaHousingToCarbon } from '@/assets/routes/route-04h-plaza-housing-to-carbon';
 import { route04IPlazaHousingToCarbon } from '@/assets/routes/route-04i-plaza-housing-to-carbon';
+import { route04LLahugToSmViaAyala } from '@/assets/routes/route-04l-lahug-to-sm-via-ayala';
+import { route04MAyalaTerminalToLahug } from '@/assets/routes/route-04m-ayala-terminal-to-lahug';
+import { route06BGuadalupeToCarbon } from '@/assets/routes/route-06b-guadalupe-to-carbon';
+import { route06CGuadalupeToColon } from '@/assets/routes/route-06c-guadalupe-to-colon';
 import { useNavigationContext } from '@/contexts/NavigationContext';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, PanResponder, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -205,6 +209,82 @@ const routes = () => {
       }
     : undefined;
 
+  const route04LWaypoints = route04LLahugToSmViaAyala.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  const lahugStart04L = route04LLahugToSmViaAyala.features[1]?.geometry?.coordinates
+    ? {
+        latitude: route04LLahugToSmViaAyala.features[1].geometry.coordinates[1] as number,
+        longitude: route04LLahugToSmViaAyala.features[1].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const smEnd04L = route04LLahugToSmViaAyala.features[2]?.geometry?.coordinates
+    ? {
+        latitude: route04LLahugToSmViaAyala.features[2].geometry.coordinates[1] as number,
+        longitude: route04LLahugToSmViaAyala.features[2].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const route06BWaypoints = route06BGuadalupeToCarbon.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  const guadalupeStart06B = route06BGuadalupeToCarbon.features[1]?.geometry?.coordinates
+    ? {
+        latitude: route06BGuadalupeToCarbon.features[1].geometry.coordinates[1] as number,
+        longitude: route06BGuadalupeToCarbon.features[1].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const carbonEnd06B = route06BGuadalupeToCarbon.features[2]?.geometry?.coordinates
+    ? {
+        latitude: route06BGuadalupeToCarbon.features[2].geometry.coordinates[1] as number,
+        longitude: route06BGuadalupeToCarbon.features[2].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const route04MWaypoints = route04MAyalaTerminalToLahug.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  const ayalaTerminalStart04M = route04MAyalaTerminalToLahug.features[1]?.geometry?.coordinates
+    ? {
+        latitude: route04MAyalaTerminalToLahug.features[1].geometry.coordinates[1] as number,
+        longitude: route04MAyalaTerminalToLahug.features[1].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const lahugEnd04M = route04MAyalaTerminalToLahug.features[2]?.geometry?.coordinates
+    ? {
+        latitude: route04MAyalaTerminalToLahug.features[2].geometry.coordinates[1] as number,
+        longitude: route04MAyalaTerminalToLahug.features[2].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const route06CWaypoints = route06CGuadalupeToColon.features[0].geometry.coordinates.map((coord: any) => ({
+    latitude: coord[1] as number,
+    longitude: coord[0] as number
+  }));
+
+  const guadalupeStart06C = route06CGuadalupeToColon.features[1]?.geometry?.coordinates
+    ? {
+        latitude: route06CGuadalupeToColon.features[1].geometry.coordinates[1] as number,
+        longitude: route06CGuadalupeToColon.features[1].geometry.coordinates[0] as number
+      }
+    : undefined;
+
+  const colonEnd06C = route06CGuadalupeToColon.features[2]?.geometry?.coordinates
+    ? {
+        latitude: route06CGuadalupeToColon.features[2].geometry.coordinates[1] as number,
+        longitude: route06CGuadalupeToColon.features[2].geometry.coordinates[0] as number
+      }
+    : undefined;
+
   // Extract start and end points for 01C route
   const uscStart = {
     latitude: route01CPrivateToColon.features[1].geometry.coordinates[1] as number,
@@ -292,17 +372,42 @@ const routes = () => {
     },
     { 
       id: 9, 
-      code: '06B', 
-      description: 'Talamban to Colon',
-      color: '#A8E6CF',
-      waypoints: [
-        { latitude: 10.3700, longitude: 123.8700 },
-        { latitude: 10.3650, longitude: 123.8750 },
-        { latitude: 10.3600, longitude: 123.8800 }, // End point
-      ]
+      code: '04L', 
+      description: 'Lahug to SM via Ayala',
+      color: '#16A085',
+      waypoints: route04LWaypoints,
+      startPoint: lahugStart04L,
+      endPoint: smEnd04L
     },
     { 
       id: 10, 
+      code: '04M', 
+      description: 'Ayala Terminal to Lahug (JY Square Mall)',
+      color: '#8E44AD',
+      waypoints: route04MWaypoints,
+      startPoint: ayalaTerminalStart04M,
+      endPoint: lahugEnd04M
+    },
+    { 
+      id: 11, 
+      code: '06B', 
+      description: 'Guadalupe to Carbon',
+      color: '#2ECC71',
+      waypoints: route06BWaypoints,
+      startPoint: guadalupeStart06B,
+      endPoint: carbonEnd06B
+    },
+    { 
+      id: 12, 
+      code: '06C', 
+      description: 'Guadalupe to Colon',
+      color: '#1ABC9C',
+      waypoints: route06CWaypoints,
+      startPoint: guadalupeStart06C,
+      endPoint: colonEnd06C
+    },
+    { 
+      id: 13, 
       code: '69B', 
       description: 'CIT-U to Emall',
       color: '#FF8B94',

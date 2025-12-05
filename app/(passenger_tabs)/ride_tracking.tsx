@@ -57,10 +57,11 @@ const RideTracking = () => {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'gcash' | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'confirmed' | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
-  const [driverInfo, setDriverInfo] = useState<{ name: string; jeepCode: string; rating?: number; photo_url?: string } | null>(null);
+  const [driverInfo, setDriverInfo] = useState<{ name: string; jeepCode: string; rating?: number; photo_url?: string; qr_photo_url?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState<number>(0);
   const [submittedRating, setSubmittedRating] = useState(false);
+  const [showGCashQR, setShowGCashQR] = useState(false);
   const [destination, setDestination] = useState<LatLng | null>(
     lat && lng ? { latitude: Number(lat), longitude: Number(lng) } : null
   );
@@ -287,7 +288,7 @@ const RideTracking = () => {
       try {
         const { data: driverData, error: driverError } = await supabase
           .from('drivers')
-          .select('driver_id, jeep_code, rating')
+          .select('driver_id, jeep_code, rating, qr_photo_url')
           .eq('driver_id', driverId)
           .single();
 
@@ -312,6 +313,7 @@ const RideTracking = () => {
           jeepCode: driverData.jeep_code,
           rating: driverData.rating,
           photo_url: userData.photo_url,
+          qr_photo_url: driverData.qr_photo_url,
         });
       } catch (err) {
         console.error('Error fetching driver info:', err);
@@ -448,8 +450,14 @@ const RideTracking = () => {
           console.log('New ride status:', ride.status);
           setRideStatus(ride.status);
           
+          // Only create trip record if ride is accepted (not denied)
           if (ride.status === 'accepted') {
             await createOrFetchTripRecord(); 
+          } else if (ride.status === 'denied') {
+            Alert.alert('Ride request denied', 'The driver denied your ride request.', [
+              { text: 'OK', onPress: () => router.back() }
+            ]);
+            return; // Exit early, don't create trip record
           }
 
           if (ride.status === 'cancelled') {
@@ -645,6 +653,13 @@ const RideTracking = () => {
 
     setPaymentMethod(method);
     setPaymentStatus('pending');
+    
+    // Show GCash QR modal if gcash is selected
+    if (method === 'gcash') {
+      setShowGCashQR(true);
+    } else {
+      setShowGCashQR(false);
+    }
 
     try {
       // Create new payment record
@@ -685,6 +700,8 @@ const RideTracking = () => {
         return 'Waiting for driver to accept request...';
       case 'accepted':
         return 'Your jeep is on the way';
+      case 'denied':
+      return 'Ride request denied';
       case 'ongoing':
         return 'On the way to destination';
       case 'completed':
@@ -735,7 +752,9 @@ const RideTracking = () => {
         {pickupLocation && rideStatus === 'pending' && <></>}
         {driverLocation && (
           <Marker coordinate={driverLocation} title="Driver">
-            <Image source={require('@/assets/images/jeep_icon.png')} style={{ width: 30, height: 30 }} />
+            <View className="bg-white rounded-full p-2 border-2 border-[#996FD6]">
+              <Image source={require('@/assets/images/jeep_icon.png')} className='w-[30] h-[25]'/>
+            </View>
           </Marker>
         )}
         {destination && (
@@ -873,6 +892,31 @@ const RideTracking = () => {
                     </Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* GCash QR Code Modal */}
+                {showGCashQR && driverInfo?.qr_photo_url && (
+                  <View className="mb-4 p-4 bg-white rounded-lg border-2 border-[#550CBF]">
+                    <View className="flex-row justify-between items-center mb-3">
+                      <Text className="text-lg font-bold text-[#550CBF]">Scan to Pay</Text>
+                      <TouchableOpacity onPress={() => setShowGCashQR(false)}>
+                        <Ionicons name="close-circle" size={24} color="#550CBF" />
+                      </TouchableOpacity>
+                    </View>
+                    <View className="items-center">
+                      <Image
+                        source={{ uri: driverInfo.qr_photo_url }}
+                        style={{ width: 200, height: 200 }}
+                        resizeMode="contain"
+                      />
+                      <Text className="text-sm text-gray-600 mt-2 text-center">
+                        Scan this QR code with your GCash app to complete payment
+                      </Text>
+                      <Text className="text-base font-bold text-[#550CBF] mt-2">
+                        Amount: ₱{fareAmount.toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+                )}
 
                 {/* Payment Status Text */}
                 {paymentStatus === 'pending' && (

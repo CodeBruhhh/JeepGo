@@ -701,7 +701,7 @@ const MapScreen = () => {
               }}
             >
               <View className="bg-white rounded-full p-2 border-2 border-[#996FD6]">
-                <Image source={require('@/assets/images/jeep_icon.png')} className='w-5 h-5'/>
+                <Image source={require('@/assets/images/jeep_icon.png')} className='w-[30] h-[25]'/>
               </View>
             </Marker>
           );

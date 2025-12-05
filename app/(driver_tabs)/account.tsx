@@ -18,6 +18,7 @@ interface DriverInfo {
   status: string;
   jeep_code: string;
   is_online: boolean;
+  qr_photo_url: string | null;
 }
 
 export default function account() {
@@ -37,6 +38,7 @@ export default function account() {
   const [editedLicenseNo, setEditedLicenseNo] = useState('');
   const [editedJeepCode, setEditedJeepCode] = useState('');
   const [editedPhotoUrl, setEditedPhotoUrl] = useState<string | null>(null);
+  const [editedQRUrl, setEditedQRUrl] = useState<string | null>(null);
   
   // Password change fields
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -74,7 +76,7 @@ export default function account() {
       // Fetch driver info
       const { data: driverData } = await supabase
         .from("drivers")
-        .select("rating, license_no, status, jeep_code, is_online")
+        .select("rating, license_no, status, jeep_code, is_online, qr_photo_url")
         .eq("driver_id", auth.user.id)
         .single();
 
@@ -82,6 +84,7 @@ export default function account() {
         setDriverInfo(driverData);
         setEditedLicenseNo(driverData.license_no);
         setEditedJeepCode(driverData.jeep_code);
+        setEditedQRUrl(driverData.qr_photo_url);
       }
 
       // Fetch total trips count
@@ -98,7 +101,7 @@ export default function account() {
     fetchUserInfo();
   }, []);
 
-  const pickImage = async () => {
+  const pickProfileImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (status !== 'granted') {
@@ -115,6 +118,27 @@ export default function account() {
 
     if (!result.canceled) {
       setEditedPhotoUrl(result.assets[0].uri);
+      setEditedQRUrl(result.assets[0].uri);
+    }
+  };
+
+  const pickQRImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please grant permission to access photos');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setEditedQRUrl(result.assets[0].uri);
     }
   };
 
@@ -146,6 +170,7 @@ export default function account() {
         .update({
           license_no: editedLicenseNo,
           jeep_code: editedJeepCode,
+          qr_photo_url: editedQRUrl,
         })
         .eq("driver_id", auth.user.id);
 
@@ -166,6 +191,7 @@ export default function account() {
           ...driverInfo,
           license_no: editedLicenseNo,
           jeep_code: editedJeepCode,
+          qr_photo_url: editedQRUrl,
         });
       }
 
@@ -241,6 +267,7 @@ export default function account() {
     setEditedLicenseNo(driverInfo?.license_no || '');
     setEditedJeepCode(driverInfo?.jeep_code || '');
     setEditedPhotoUrl(userInfo?.photo_url || null);
+    setEditedQRUrl(driverInfo?.qr_photo_url || null);
     setIsEditing(false);
     setShowPasswordChange(false);
     setCurrentPassword('');
@@ -257,7 +284,7 @@ export default function account() {
     }}
     >
       {/* Profile Picture */}
-      <TouchableOpacity onPress={isEditing ? pickImage : undefined} activeOpacity={isEditing ? 0.7 : 1}>
+      <TouchableOpacity onPress={isEditing ? pickProfileImage : undefined} activeOpacity={isEditing ? 0.7 : 1}>
         {loadingPhoto ? (
           <ActivityIndicator size="small" color="#550CBF" />
         ) : editedPhotoUrl ? (
@@ -387,6 +414,33 @@ export default function account() {
             )}
           </View>
         )}
+
+        <Text className='font-bold mb-[10]'>Gcash QR Code: </Text>
+        {/* Gcash QR Code */}
+        <View className="items-center justify-center bg-white rounded-lg border-2 border-[#550CBF]">
+          <TouchableOpacity onPress={isEditing ? pickQRImage : undefined} activeOpacity={isEditing ? 0.7 : 1}>
+            {loadingPhoto ? (
+              <ActivityIndicator size="small" color="#550CBF" />
+            ) : editedQRUrl ? (
+              <View>
+                <Image
+                  source={{ uri: editedQRUrl }}
+                  className="w-40 h-80 "
+                  resizeMode="center"
+                />
+                {isEditing && (
+                  <View className="absolute bottom-0 right-0 bg-[#550CBF] w-10 h-10 items-center justify-center">
+                    <Text className="text-white text-lg">✎</Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View className="w-40 h-40 bg-gray-300 justify-center items-center">
+                <Text className="text-gray-600">{isEditing ? 'Tap to add' : 'No Photo'}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
 
         <Text className='font-bold mb-[10]'>Password: </Text>
         <TouchableOpacity 

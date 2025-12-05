@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, ViewStyle } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 
 interface MapComponentProps {
@@ -35,10 +35,15 @@ export default function MapComponent({
         const { status } = await Location.requestForegroundPermissionsAsync();
         
         if (status !== 'granted') {
-          Alert.alert(
-            'Permission Denied',
-            'Location permission is required to show your position on the map.'
-          );
+          // Fallback to Cebu City if permission denied
+          const cebuRegion = {
+            latitude: 10.3157,
+            longitude: 123.8854,
+            latitudeDelta: 0.15,  // Wider view
+            longitudeDelta: 0.15, // Wider view
+          };
+          setRegion(cebuRegion);
+          if (onRegionChange) onRegionChange(cebuRegion);
           setLoading(false);
           return;
         }
@@ -66,7 +71,15 @@ export default function MapComponent({
         
       } catch (error) {
         console.error('Error getting location:', error);
-        Alert.alert('Error', 'Failed to get your location. Please try again.');
+        // Fallback to Cebu City on error
+        const cebuRegion = {
+          latitude: 10.3157,
+          longitude: 123.8854,
+          latitudeDelta: initialDelta,
+          longitudeDelta: initialDelta,
+        };
+        setRegion(cebuRegion);
+        if (onRegionChange) onRegionChange(cebuRegion);
       } finally {
         setLoading(false);
       }
@@ -123,6 +136,7 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+    overflow: 'hidden'
   },
   loadingContainer: {
     flex: 1,

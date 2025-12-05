@@ -298,7 +298,7 @@ const RideTracking = () => {
 
         const { data: userData, error: userError } = await supabase
           .from('user_info')
-          .select('first_name, last_name, photo_url')
+          .select('full_name, photo_url')
           .eq('user_id', driverId)
           .single();
 
@@ -308,7 +308,7 @@ const RideTracking = () => {
         }
 
         setDriverInfo({
-          name: `${userData.first_name} ${userData.last_name}`,
+          name: `${userData.full_name}`,
           jeepCode: driverData.jeep_code,
           rating: driverData.rating,
           photo_url: userData.photo_url,

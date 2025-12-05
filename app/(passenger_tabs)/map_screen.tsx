@@ -84,7 +84,7 @@ const MapScreen = () => {
   );
   const [destinationName, setDestinationName] = useState(name || '');
   const [stopLocation, setStopLocation] = useState<LatLng | null>(null);
-  const [stopLocationName, setStopLocationName] = useState(name || '');
+  const [stopLocationName, setStopLocationName] = useState('');
   const [routes, setRoutes] = useState<Route[]>([]);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -105,19 +105,33 @@ const MapScreen = () => {
   const [selectedJeepCode, setSelectedJeepCode] = useState<string | null>(null);
   const [showDrivers, setShowDrivers] = useState(false);
 
-  // Add key to force refresh
   const [mapKey, setMapKey] = useState(0);
+
+  // Comprehensive reset function
+  const resetRouteState = () => {
+    setRoutes([]);
+    setSelectedRouteIndex(0);
+    setShowDrivers(false);
+    setFilteredDrivers([]);
+    setSelectedJeepCode(null);
+    setStopLocation(null);
+    setStopLocationName('');
+    setPredictions([]);
+    
+    // Reset modal position
+    Animated.timing(translateY, {
+      toValue: MIN_TRANSLATE,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
 
   // Reset state when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      // Reset driver selection state when returning to this screen
-      setShowDrivers(false);
-      setFilteredDrivers([]);
-      setSelectedJeepCode(null);
+      resetRouteState();
 
       return () => {
-        // Clean up debounce timer
         if (debounceTimerRef.current) {
           clearTimeout(debounceTimerRef.current);
         }
@@ -176,14 +190,17 @@ const MapScreen = () => {
     }
   };
 
-  // Handle params changes - refresh map and fields
+  // Handle params changes - reset routes and refresh map
   useEffect(() => {
     if (lat && lng) {
       const newDestination = { latitude: Number(lat), longitude: Number(lng) };
       setDestination(newDestination);
       setDestinationName(name || '');
       setToQuery(name || '');
-      setMapKey(prev => prev + 1); // Force map refresh
+      
+      // Reset route-related state when destination changes
+      resetRouteState();
+      setMapKey(prev => prev + 1);
     }
   }, [lat, lng, name]);
 
@@ -218,6 +235,11 @@ const MapScreen = () => {
 
     const fetchDirections = async () => {
       setLoading(true);
+      
+      // Reset previous routes before fetching new ones
+      setRoutes([]);
+      setSelectedRouteIndex(0);
+      
       try {
         const resp = await fetch(
           `https://maps.googleapis.com/maps/api/directions/json?origin=${userLocation.latitude},${userLocation.longitude}&destination=${destination.latitude},${destination.longitude}&mode=transit&alternatives=true&key=${GOOGLE_MAPS_API_KEY}`
@@ -273,9 +295,15 @@ const MapScreen = () => {
             tension: 50,
             friction: 8,
           }).start();
+        } else {
+          // No routes found
+          setRoutes([]);
+          Alert.alert('No Routes', 'Could not find transit routes to this destination.');
         }
       } catch (err) {
         console.error('Directions error:', err);
+        setRoutes([]);
+        Alert.alert('Error', 'Failed to fetch directions. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -346,10 +374,14 @@ const MapScreen = () => {
           setUserLocation({ latitude: location.lat, longitude: location.lng });
           setFromQuery(place.name);
           setLocationError(false);
+          // Reset routes when changing start location
+          resetRouteState();
         } else {
           setDestination({ latitude: location.lat, longitude: location.lng });
           setDestinationName(place.name);
           setToQuery(place.name);
+          // Reset routes when changing destination
+          resetRouteState();
         }
 
         setPredictions([]);
@@ -386,21 +418,18 @@ const MapScreen = () => {
     if (!jeepCode) return;
 
     try {
-      // Reset previous state
+      // Reset previous driver state
       setShowDrivers(false);
       setFilteredDrivers([]);
 
       // Capture the arrival stop location from the segment's transit details
       if (segment?.transitDetails?.arrival_stop) {
         const arrivalStop = segment.transitDetails.arrival_stop;
-        console.log('Arrival stop data:', arrivalStop);
         
-        // The arrival stop location should be in the last coordinate of the segment
         if (segment.coords && segment.coords.length > 0) {
           const stopLoc = segment.coords[segment.coords.length - 1];
           setStopLocation(stopLoc);
           setStopLocationName(arrivalStop.name || 'Drop-off point');
-          console.log('Set stop location to:', stopLoc, 'with name:', arrivalStop.name);
         }
       }
 
@@ -459,41 +488,34 @@ const MapScreen = () => {
   };
 
   const handleBookRide = async (driverId: string) => {
-    // Safely extract coordinates
+    console.log('=== BOOKING DEBUG START ===');
+    console.log('Driver ID:', driverId);
+    console.log('User Location:', userLocation);
+    console.log('Stop Location:', stopLocation);
+    console.log('Stop Location Name:', stopLocationName);
+    
     const userLat = userLocation?.latitude;
     const userLng = userLocation?.longitude;
     const stopLat = stopLocation?.latitude;
     const stopLng = stopLocation?.longitude;
 
     if (!userLat || !userLng || !stopLat || !stopLng) {
-    Alert.alert('Error', 'Please select a jeep route first.');
-    return;
+      console.error('Missing coordinates:', { userLat, userLng, stopLat, stopLng });
+      Alert.alert('Error', 'Please select a jeep route first.');
+      return;
     }
 
     try {
-    // Get current user
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData.user || !userData.user.id) {
-    Alert.alert('Error', 'Could not get user info.');
-    return;
-    }
-    const passengerId = userData.user.id;
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user || !userData.user.id) {
+        console.error('User auth error:', userError);
+        Alert.alert('Error', 'Could not get user info.');
+        return;
+      }
+      const passengerId = userData.user.id;
+      console.log('Passenger ID:', passengerId);
 
-    console.log('Creating ride request with:', {
-      passenger_id: passengerId,
-      driver_id: driverId,
-      from_x: userLat,
-      from_y: userLng,
-      to_x: stopLat,
-      to_y: stopLng,
-      status: 'pending',
-      destination_name: stopLocationName,
-    });
-
-    // Insert ride request
-    const { data, error } = await supabase
-      .from('ride_requests')
-      .insert({
+      const insertData = {
         passenger_id: passengerId,
         driver_id: driverId,
         from_x: userLat,
@@ -502,52 +524,61 @@ const MapScreen = () => {
         to_y: stopLng,
         status: 'pending',
         destination_name: stopLocationName || 'Destination',
-      })
-      .select('*')
-      .single();
+      };
+      console.log('Insert data:', insertData);
 
-    if (error) {
-      console.error('Insert error:', error);
-      Alert.alert('Error', 'Failed to create ride request.');
-      return;
-    }
+      const { data, error } = await supabase
+        .from('ride_requests')
+        .insert(insertData)
+        .select('*')
+        .single();
 
-    if (!data || typeof data.request_id === 'undefined') {
-      console.error('No data returned:', data);
-      Alert.alert('Error', 'Failed to get ride ID.');
-      return;
-    }
+      if (error) {
+        console.error('Insert error:', error);
+        Alert.alert('Error', 'Failed to create ride request.');
+        return;
+      }
 
-    const requestId = data.request_id;
-    console.log('Created ride with ID:', requestId);
+      if (!data || typeof data.request_id === 'undefined') {
+        console.error('No data returned:', data);
+        Alert.alert('Error', 'Failed to get ride ID.');
+        return;
+      }
 
-    // Navigate safely
-    try {
-      router.push({
-        pathname: '/ride_tracking',
-        params: {
-          requestId: String(requestId),
-          driverId: String(driverId),
-          userLat: String(userLat),
-          userLng: String(userLng),
-          lat: String(stopLat),
-          lng: String(stopLng),
-          name: stopLocationName || 'Destination',
-          passengerId: String(passengerId),
-        },
-      });
-    } catch (navError) {
-      console.error('Navigation error:', navError);
-      Alert.alert('Error', 'Could not navigate to ride tracking.');
-    }
+      const requestId = data.request_id;
+      console.log('Created ride with ID:', requestId);
 
+      const navParams = {
+        requestId: String(requestId),
+        driverId: String(driverId),
+        userLat: String(userLat),
+        userLng: String(userLng),
+        lat: String(stopLat),
+        lng: String(stopLng),
+        name: stopLocationName || 'Destination',
+        passengerId: String(passengerId),
+      };
+      console.log('Navigation params:', navParams);
 
+      // Use setTimeout to ensure map cleanup before navigation
+      setTimeout(() => {
+        try {
+          router.push({
+            pathname: '/ride_tracking',
+            params: navParams,
+          });
+        } catch (navError) {
+          console.error('Navigation error:', navError);
+          Alert.alert('Error', 'Could not navigate to ride tracking.');
+        }
+      }, 100);
+
+      console.log('=== BOOKING DEBUG END ===');
     } catch (err) {
-    console.error('Booking error:', err);
-    Alert.alert('Error', 'Something went wrong.');
+      console.error('Booking error:', err);
+      Alert.alert('Error', 'Something went wrong.');
     }
   };
-
 
   const getInitialRegion = () => {
     if (userLocation && destination) {
@@ -609,7 +640,7 @@ const MapScreen = () => {
           <Marker coordinate={destination} title={destinationName || 'Destination'} pinColor="red" />
         )}
         
-        {routes.map((route, routeIndex) => (
+        {routes.length > 0 && routes.map((route, routeIndex) => (
           <React.Fragment key={routeIndex}>
             {route.segments.map((segment, segmentIndex) => (
               <Polyline
@@ -628,42 +659,53 @@ const MapScreen = () => {
           </React.Fragment>
         ))}
 
-        {/* Show filtered drivers when jeep code is clicked */}
-        {showDrivers && filteredDrivers.map((driver) => (
-          <Marker
-            key={driver.driver_id}
-            coordinate={{ latitude: driver.latitude, longitude: driver.longitude }}
-            title={`${driver.jeep_code} - Tap to book`}
-            onPress={() => {
-              if (mapRef.current && userLocation) {
-                mapRef.current.fitToCoordinates(
-                  [{ latitude: userLocation.latitude, longitude: userLocation.longitude }, { latitude: driver.latitude, longitude: driver.longitude }],
-                  {
-                    edgePadding: {
-                      top: 250,                       
-                      right: 50,                       
-                      bottom: SCREEN_HEIGHT * 0.6,     
-                      left: 50,                        
-                    },
-                    animated: true,
-                  }
+        {showDrivers && filteredDrivers.map((driver) => {
+          // Validate driver coordinates before rendering
+          const isValidCoordinate = 
+            driver.latitude && 
+            driver.longitude && 
+            !isNaN(driver.latitude) && 
+            !isNaN(driver.longitude) &&
+            driver.latitude >= -90 && 
+            driver.latitude <= 90 &&
+            driver.longitude >= -180 && 
+            driver.longitude <= 180;
+
+          if (!isValidCoordinate) {
+            console.warn('Invalid driver coordinates:', driver);
+            return null;
+          }
+
+          return (
+            <Marker
+              key={driver.driver_id}
+              coordinate={{ latitude: driver.latitude, longitude: driver.longitude }}
+              title={`${driver.jeep_code} - Tap to book`}
+              onPress={() => {
+                console.log('Marker pressed for driver:', driver.driver_id);
+                
+                Alert.alert(
+                  'Confirm Booking',
+                  `Do you want to book this jeep? (${driver.jeep_code})`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                      text: 'Yes', 
+                      onPress: () => {
+                        console.log('Booking confirmed for driver:', driver.driver_id);
+                        handleBookRide(driver.driver_id);
+                      }
+                    }
+                  ]
                 );
-              }
-              Alert.alert(
-                'Confirm Booking',
-                `Do you want to book this jeep? (${driver.jeep_code})`,
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Yes', onPress: () => handleBookRide(driver.driver_id) }
-                ]
-              );
-            }}
-          >
-            <View className="bg-white rounded-full p-2 border-2 border-[#996FD6]">
-              <Image source={require('@/assets/images/jeep_icon.png')} className='w-5 h-5'/>
-            </View>
-          </Marker>
-        ))}
+              }}
+            >
+              <View className="bg-white rounded-full p-2 border-2 border-[#996FD6]">
+                <Image source={require('@/assets/images/jeep_icon.png')} className='w-5 h-5'/>
+              </View>
+            </Marker>
+          );
+        })}
       </MapView>
 
       <TouchableOpacity
@@ -674,7 +716,6 @@ const MapScreen = () => {
         <Ionicons name="arrow-back" size={24} color="black" />
       </TouchableOpacity>
 
-      {/* Show active filter badge */}
       {showDrivers && selectedJeepCode && (
         <View className="absolute top-1/2 right-4 bg-[#996FD6] px-4 py-2 rounded-full z-50 flex-row items-center" style={styles.shadow}>
           <Text className="text-white font-bold mr-2">{selectedJeepCode}</Text>

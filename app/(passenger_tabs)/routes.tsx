@@ -295,7 +295,7 @@ const RoutesScreen = () => {
     '62B': '62B - Pit-os to Carbon'
   };
 
-  const generatedRoutes = Object.keys(routesMap || {}).map((key, idx) => {
+  const generatedRoutes: any[] = Object.keys(routesMap || {}).map((key, idx) => {
     try {
       const r: any = (routesMap as any)[key];
       const coords: any[] = r?.features?.[0]?.geometry?.coordinates || [];

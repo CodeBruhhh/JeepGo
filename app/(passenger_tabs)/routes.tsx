@@ -4,7 +4,8 @@ import { route01KUrgelloToParkmall } from '@/assets/routes/route-01k-urgello-to-
 import { route02BCsbtToColon } from '@/assets/routes/route-02b-csbt-to-colon';
 import { route03AMaboloToCarbon } from '@/assets/routes/route-03a-mabolo-to-carbon';
 import { route03QAyalaToSmCity } from '@/assets/routes/route-03q-ayala-to-sm-city';
-import React, { useRef, useState } from 'react';
+import { useNavigationContext } from '@/contexts/NavigationContext';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, PanResponder, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
@@ -30,6 +31,20 @@ const routes = () => {
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [showRouteModal, setShowRouteModal] = useState(false);
   const [visibleRoutes, setVisibleRoutes] = useState<Set<number>>(new Set());
+  const { setShowBar, headerRef } = useNavigationContext();
+
+  // Show/hide header and footer based on bottom sheet state
+  useEffect(() => {
+    if (isExpanded) {
+      // Hide header and footer when expanded
+      setShowBar(false);
+      headerRef.current?.hideHeader();
+    } else {
+      // Show header and footer when collapsed
+      setShowBar(true);
+      headerRef.current?.showHeader();
+    }
+  }, [isExpanded, setShowBar, headerRef]);
 
   // Extract coordinates from GeoJSON
   const citUToEmallWaypoints = citUToEmallRoute.features[0].geometry.coordinates.map((coord: any) => ({

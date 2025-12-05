@@ -1,12 +1,12 @@
 import BottomNavigationBar from "@/components/BottomNavigationBar";
 import Header from "@/components/Header";
+import { NavigationProvider, useNavigationContext } from "@/contexts/NavigationContext";
 import { Tabs } from "expo-router";
-import React, { useState } from "react";
+import React from "react";
 import { View } from "react-native";
 
-const _layout = () => {
-  const [showBar, setShowBar] = useState(true); // For hiding navigation
-  const headerRef = React.useRef<{ hideHeader: () => void; showHeader: () => void }>(null); // For hiding header
+const LayoutContent = () => {
+  const { showBar, setShowBar, headerRef } = useNavigationContext();
 
   return (
       <View style={{ flex: 1 }}>
@@ -57,6 +57,14 @@ const _layout = () => {
             <Tabs.Screen name="ride_tracking" options={{ headerShown: false , title: 'RideTracking'}} />
             </Tabs>
       </View>
+  );
+};
+
+const _layout = () => {
+  return (
+    <NavigationProvider>
+      <LayoutContent />
+    </NavigationProvider>
   );
 };
 

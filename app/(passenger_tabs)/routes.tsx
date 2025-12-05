@@ -8,8 +8,10 @@ import { route04BLahugToCarbon } from '@/assets/routes/route-04b-lahug-to-carbon
 import { route04HPlazaHousingToCarbon } from '@/assets/routes/route-04h-plaza-housing-to-carbon';
 import { route04IPlazaHousingToCarbon } from '@/assets/routes/route-04i-plaza-housing-to-carbon';
 import { useNavigationContext } from '@/contexts/NavigationContext';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Modal, PanResponder, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Modal, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
 
@@ -394,6 +396,15 @@ const routes = () => {
 
   return (
     <View className="flex-1">
+      {/* Back button */}
+      <TouchableOpacity
+        className="absolute top-12 left-4 bg-white p-3 rounded-full z-50"
+        style={styles.shadow}
+        onPress={() => router.back()}
+      >
+        <Ionicons name="arrow-back" size={24} color="black" />
+      </TouchableOpacity>
+
       {/* Map View */}
       <MapView
         provider={PROVIDER_GOOGLE}
@@ -581,3 +592,13 @@ const routes = () => {
 };
 
 export default routes;
+
+const styles = StyleSheet.create({
+  shadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  }
+});

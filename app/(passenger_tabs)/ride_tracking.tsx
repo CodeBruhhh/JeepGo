@@ -93,6 +93,8 @@ const RideTracking = () => {
   const translateY = useRef(new Animated.Value(MIN_TRANSLATE)).current;
 
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isConfirmingPickup, setIsConfirmingPickup] = useState(false);
+  const [isCompletingRide, setIsCompletingRide] = useState(false);
   const [tripId, setTripId] = useState<string | null>(null);
 
   // Update all data when params change
@@ -592,6 +594,45 @@ const RideTracking = () => {
     ]);
   };
 
+  const confirmPickup = async () => {
+    if (!requestId) return;
+
+    setIsConfirmingPickup(true);
+
+    const { error } = await supabase
+      .from('ride_requests')
+      .update({ status: 'ongoing' })
+      .eq('request_id', requestId);
+
+    if (error) {
+      Alert.alert('Error', 'Failed to confirm pickup.');
+      setIsConfirmingPickup(false);
+      return;
+    }
+
+    setIsConfirmingPickup(false);
+    Alert.alert('Pickup Confirmed', 'Ride is now in progress!');
+  };
+
+  const completeRide = async () => {
+    if (!requestId) return;
+
+    setIsCompletingRide(true);
+
+    const { error } = await supabase
+      .from('ride_requests')
+      .update({ status: 'completed' })
+      .eq('request_id', requestId);
+
+    if (error) {
+      Alert.alert('Error', 'Failed to complete ride.');
+      setIsCompletingRide(false);
+      return;
+    }
+
+    setIsCompletingRide(false);
+  };
+
   const submitRating = async () => {
     if (!tripId || rating <= 0) {
       Alert.alert('Error', 'Please select a rating.');
@@ -667,7 +708,7 @@ const RideTracking = () => {
         payment_method: method,
         trip_id: tripId,
         status: 'pending',
-        amount: Math.round(fareAmount * 100) // Store in centavos/cents
+        amount: Math.round(fareAmount) // Store in pesos
       };
 
       console.log('Creating payment record:', paymentData);
@@ -701,7 +742,7 @@ const RideTracking = () => {
       case 'accepted':
         return 'Your jeep is on the way';
       case 'denied':
-      return 'Ride request denied';
+        return 'Ride request denied';
       case 'ongoing':
         return 'On the way to destination';
       case 'completed':
@@ -739,10 +780,8 @@ const RideTracking = () => {
     );
   }
 
-
-
- // Updates the passenger's location in the database
- // This allows drivers to see the passenger's real-time location during booking/ride
+  // Updates the passenger's location in the database
+  // This allows drivers to see the passenger's real-time location during booking/ride
   const updatePassengerLocation = async (latitude: number, longitude: number) => {
     if (!passengerId) {
       console.log('No passengerId available');
@@ -936,7 +975,29 @@ const RideTracking = () => {
               <ActivityIndicator size="small" color="#550CBF" />
             )}
 
-            {/* Trip Details and Payment - Only show when accepted or later */}
+            {/* Confirm Pickup Button - Show when status is 'accepted' */}
+            {rideStatus === 'accepted' && (
+              <TouchableOpacity
+                className="bg-green-500 rounded-full py-3 items-center mb-4"
+                onPress={() => {
+                  Alert.alert(
+                    'Confirm Pickup',
+                    'Have you been picked up by the driver?',
+                    [
+                      { text: 'Not Yet', style: 'cancel' },
+                      { text: 'Yes, Picked Up', onPress: () => confirmPickup() }
+                    ]
+                  );
+                }}
+                disabled={isConfirmingPickup}
+              >
+                <Text className="text-white font-bold text-lg">
+                  {isConfirmingPickup ? 'Confirming...' : '✓ Confirm Pickup'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Trip Details and Payment - Show when accepted or ongoing or completed */}
             {(rideStatus === 'accepted' || rideStatus === 'ongoing' || rideStatus === 'completed') && (
               <>
                 <Text className="text-lg font-bold mb-2">Trip Details</Text>
@@ -1040,6 +1101,28 @@ const RideTracking = () => {
                   </View>
                 )}
               </>
+            )}
+
+            {/* Complete Ride Button - Show when status is 'ongoing' */}
+            {rideStatus === 'ongoing' && (
+              <TouchableOpacity
+                className="bg-blue-500 rounded-full py-3 items-center mb-4"
+                onPress={() => {
+                  Alert.alert(
+                    'Complete Ride',
+                    'Have you arrived at your destination?',
+                    [
+                      { text: 'Not Yet', style: 'cancel' },
+                      { text: 'Yes, I Arrived', onPress: () => completeRide() }
+                    ]
+                  );
+                }}
+                disabled={isCompletingRide}
+              >
+                <Text className="text-white font-bold text-lg">
+                  {isCompletingRide ? 'Completing...' : '🏁 I Have Arrived'}
+                </Text>
+              </TouchableOpacity>
             )}
 
             {rideStatus === 'completed' && !submittedRating && (

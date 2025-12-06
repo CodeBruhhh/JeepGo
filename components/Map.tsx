@@ -12,6 +12,7 @@ interface MapComponentProps {
   style?: ViewStyle;
   onLocationChange?: (coords: Location.LocationObjectCoords) => void;
   onRegionChange?: (region: Region) => void;
+  markers?: Array<{ id: string; latitude: number; longitude: number; title: string; description?: string }>;
 }
 
 export default function MapComponent({
@@ -23,6 +24,7 @@ export default function MapComponent({
   style,
   onLocationChange,
   onRegionChange,
+  markers = [],
 }: MapComponentProps) {
   const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [region, setRegion] = useState<Region | null>(null);
@@ -112,6 +114,17 @@ export default function MapComponent({
             description={`${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`}
           />
         )}
+        {markers.map((marker) => (
+          <Marker
+            key={marker.id}
+            coordinate={{
+              latitude: marker.latitude,
+              longitude: marker.longitude,
+            }}
+            title={marker.title}
+            description={marker.description}
+          />
+        ))}
       </MapView>
     </View>
   );

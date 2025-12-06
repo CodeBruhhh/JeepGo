@@ -88,6 +88,7 @@ export default function DriverHome() {
     if (!driverId) return
 
     let channel: any
+    let tripChannel: any
 
     const fetchInitial = async () => {
       setLoading(true)
@@ -101,10 +102,11 @@ export default function DriverHome() {
           .single()
         setDriver(d)
 
-        // fetch pending/searching ride requests (not assigned)
+        // fetch pending/searching ride requests assigned to this driver
         const { data: requests } = await supabase
           .from('ride_requests')
           .select('*')
+          .eq('driver_id', driverId)
           .or("status.eq.searching,status.eq.pending")
           .order('created_at', { ascending: false })
 
@@ -119,7 +121,7 @@ export default function DriverHome() {
 
         setActivePassengers((trips as any) || [])
 
-        // realtime subscription for ride_requests
+        // realtime subscription for ride_requests assigned to this driver
         channel = supabase
           .channel('public:ride_requests')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_requests' }, (payload) => {
@@ -127,16 +129,43 @@ export default function DriverHome() {
             const newRow = payload.new as RideRequest | null
             const oldRow = payload.old as RideRequest | null
 
-            if (ev === 'INSERT' && newRow) {
+            // Only process events for this driver
+            if (ev === 'INSERT' && newRow && newRow.driver_id === driverId) {
+              console.log('New ride request:', newRow)
               setRideRequests((prev) => [newRow!, ...prev])
             }
 
-            if (ev === 'UPDATE' && newRow) {
+            if (ev === 'UPDATE' && newRow && newRow.driver_id === driverId) {
               setRideRequests((prev) => prev.map((r) => (r.request_id === newRow.request_id ? newRow : r)))
             }
 
-            if (ev === 'DELETE' && oldRow) {
+            if (ev === 'DELETE' && oldRow && oldRow.driver_id === driverId) {
               setRideRequests((prev) => prev.filter((r) => r.request_id !== oldRow.request_id))
+            }
+          })
+          .subscribe()
+
+        // realtime subscription for trips for this driver so activePassengers update in real-time
+        tripChannel = supabase
+          .channel('public:trips')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, (payload) => {
+            const ev = payload.eventType
+            const newRow = payload.new as any | null
+            const oldRow = payload.old as any | null
+
+            if (ev === 'INSERT' && newRow && newRow.driver_id === driverId) {
+              console.log('New trip:', newRow)
+              setActivePassengers((prev) => [newRow, ...(prev || [])])
+              // remove any matching ride_request if present
+              setRideRequests((prev) => prev.filter((r) => r.passenger_id !== newRow.passenger_id))
+            }
+
+            if (ev === 'UPDATE' && newRow && newRow.driver_id === driverId) {
+              setActivePassengers((prev) => prev.map((t) => (t.trip_id === newRow.trip_id ? newRow : t)))
+            }
+
+            if (ev === 'DELETE' && oldRow && oldRow.driver_id === driverId) {
+              setActivePassengers((prev) => prev.filter((t) => t.trip_id !== oldRow.trip_id))
             }
           })
           .subscribe()
@@ -151,6 +180,7 @@ export default function DriverHome() {
 
     return () => {
       if (channel) channel.unsubscribe()
+      if (tripChannel) tripChannel.unsubscribe()
     }
   }, [driverId])
 
@@ -166,20 +196,30 @@ export default function DriverHome() {
 
       if (error) throw error
 
-      // create a trip record for tracking
-      const { data: trip, error: tripErr } = await supabase.from('trips').insert([
-        {
-          driver_id: driverId,
-          passenger_id: request.passenger_id,
-          start_time: new Date().toISOString(),
-          status: 'ongoing',
-          pick_up: `${request.from_x?.toFixed?.(6) || request.from_x}, ${request.from_y?.toFixed?.(6) || request.from_y}`,
-          destination: request.destination_name || '',
-          distance: 0,
-        },
-      ])
+      // create a trip record for tracking and return the created trip
+      const { data: tripData, error: tripErr } = await supabase
+        .from('trips')
+        .insert([
+          {
+            driver_id: driverId,
+            passenger_id: request.passenger_id,
+            start_time: new Date().toISOString(),
+            status: 'ongoing',
+            pick_up: `${request.from_x?.toFixed?.(6) || request.from_x}, ${request.from_y?.toFixed?.(6) || request.from_y}`,
+            destination: request.destination_name || '',
+            distance: 0,
+          },
+        ])
+        .select('*')
+        .single()
 
-      if (tripErr) console.warn('Trip create error', tripErr)
+      if (tripErr) throw tripErr
+
+      // Update local states: remove request from rideRequests and add to activePassengers
+      if (tripData) {
+        setActivePassengers((prev) => [tripData, ...(prev || [])])
+        setRideRequests((prev) => prev.filter((r) => r.request_id !== request.request_id))
+      }
 
       Alert.alert('Accepted', 'You accepted the ride request.')
     } catch (err: any) {
@@ -192,7 +232,7 @@ export default function DriverHome() {
     try {
       const { error } = await supabase
         .from('ride_requests')
-        .update({ status: 'rejected', cancelled_by: 'driver' })
+        .update({ status: 'canceled', cancelled_by: 'driver' })
         .eq('request_id', request.request_id)
 
       if (error) throw error
@@ -251,7 +291,15 @@ export default function DriverHome() {
   return (
     <View className="flex-1 bg-white">
       <View className="absolute inset-0">
-        <MapComponent />
+        <MapComponent
+          markers={activePassengers.map((trip) => ({
+            id: trip.passenger_id,
+            latitude: trip.from_y || 0,
+            longitude: trip.from_x || 0,
+            title: `Passenger ${trip.passenger_id.slice(0, 8)}`,
+            description: trip.destination || 'Destination',
+          }))}
+        />
       </View>
 
       <GestureDetector gesture={gesture}>

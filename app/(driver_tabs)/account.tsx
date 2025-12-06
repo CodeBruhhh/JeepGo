@@ -118,7 +118,6 @@ export default function account() {
 
     if (!result.canceled) {
       setEditedPhotoUrl(result.assets[0].uri);
-      setEditedQRUrl(result.assets[0].uri);
     }
   };
 
@@ -133,8 +132,8 @@ export default function account() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
+      aspect: [3, 4],
+      quality: 0.9,
     });
 
     if (!result.canceled) {

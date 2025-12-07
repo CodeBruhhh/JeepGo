@@ -644,7 +644,7 @@ const MapScreen = () => {
     };
   };
 
-  if (loading && !destination) {
+  if (loading && !destination && !userLocation && routes.length <= 0) {
     return (
       <View className="flex-1 justify-center items-center">
         <ActivityIndicator size="large" color="#550CBF" />

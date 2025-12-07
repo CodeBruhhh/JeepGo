@@ -530,8 +530,7 @@ const RideTracking = () => {
 
           if (ride.status === 'cancelled') {
             // Create trip record for cancelled ride
-            await createOrFetchTripRecord();
-            await finalizeTrip('cancelled');
+            await finalizeTrip("cancelled");
             
             if (ride.cancelled_by === 'driver') {
               Alert.alert('Ride Cancelled', 'The driver cancelled your ride.', [
@@ -540,7 +539,6 @@ const RideTracking = () => {
             }
           } else if (ride.status === 'completed') {
             // Create trip record immediately for completed ride
-            await createOrFetchTripRecord();
             await finalizeTrip('completed');
             Alert.alert('Ride Completed', 'You have arrived at your destination!');
           }
@@ -648,6 +646,7 @@ const RideTracking = () => {
 
     // Create trip record for cancelled ride
     await createOrFetchTripRecord();
+    await finalizeTrip('cancelled');
 
     Alert.alert('Ride Cancelled', 'Your ride has been cancelled.', [
       {
@@ -771,10 +770,10 @@ const RideTracking = () => {
     try {
       // Create new payment record
       const paymentData = {
-        payment_method: method,
+        payment_method: method.toUpperCase(),
         trip_id: tripId,
         status: 'pending',
-        amount: Math.round(fareAmount) // Store in pesos
+        amount: fareAmount.toFixed(2) // Store in pesos
       };
 
       console.log('Creating payment record:', paymentData);
@@ -1202,7 +1201,11 @@ const RideTracking = () => {
                     'Have you arrived at your destination?',
                     [
                       { text: 'Not Yet', style: 'cancel' },
-                      { text: 'Yes, I Arrived', onPress: () => completeRide() }
+                      { text: 'Yes, I Arrived',  onPress: () => {
+                          completeRide();
+                          finalizeTrip("completed");
+                        }
+                      }
                     ]
                   );
                 }}

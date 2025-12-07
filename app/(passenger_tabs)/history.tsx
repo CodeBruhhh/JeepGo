@@ -1,7 +1,7 @@
 import { supabase } from '@/services/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import Animated, { Layout, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
  
 interface TravelHistory {
@@ -29,38 +29,6 @@ const history = () => {
  
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
-  };
- 
-  const deleteHistory = async (id: string) => {
-    Alert.alert(
-      'Delete Trip',
-      'Are you sure you want to delete this trip from your history?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('trips')
-                .delete()
-                .eq('trip_id', id);
-              
-              if (error) throw error;
-              
-              setTravelHistory(travelHistory.filter(item => item.id !== id));
-              if (expandedId === id) {
-                setExpandedId(null);
-              }
-            } catch (error) {
-              console.error('Error deleting trip:', error);
-              Alert.alert('Error', 'Failed to delete trip');
-            }
-          }
-        }
-      ]
-    );
   };
 
   const updateRating = async (tripId: string, rating: number) => {
@@ -316,16 +284,6 @@ const history = () => {
             <Text className="text-white text-lg font-semibold" style={{ fontFamily: 'System' }}>
               {item.date}
             </Text>
-            <TouchableOpacity 
-              onPress={() => deleteHistory(item.id)}
-              style={{
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                padding: 8,
-                borderRadius: 12,
-              }}
-            >
-              <Ionicons name="trash-outline" size={20} color="#FFF" />
-            </TouchableOpacity>
           </View>
           
           {/* Status Badge */}
@@ -605,7 +563,7 @@ const history = () => {
       }}
     >
       {/* Title */}
-      <View className="mb-6 w-full" style={{ maxWidth: 360 }}>
+      <View className="mb-6 w-full mt-[50]" style={{ maxWidth: 360 }}>
         <Text
           className="text-gray-900 font-bold mb-1"
           style={{ fontSize: 32 }}
@@ -620,6 +578,7 @@ const history = () => {
       {/* History Cards */}
       {loading ? (
         <View className="items-center justify-center py-20">
+          <ActivityIndicator size="large" color="#550CBF" />
           <Text className="text-gray-500 text-lg">Loading...</Text>
         </View>
       ) : travelHistory.length === 0 ? (

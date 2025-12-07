@@ -96,6 +96,70 @@ const RideTracking = () => {
   const [isConfirmingPickup, setIsConfirmingPickup] = useState(false);
   const [isCompletingRide, setIsCompletingRide] = useState(false);
   const [tripId, setTripId] = useState<string | null>(null);
+  const [lastDriverUpdateTime, setLastDriverUpdateTime] = useState<number>(0);
+  const driverLocationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDriverLocationRef = useRef<LatLng | null>(null);
+  const isFirstDriverUpdate = useRef<boolean>(true);
+  const [trackingDriverMarker, setTrackingDriverMarker] = useState(false);
+
+  const UPDATE_INTERVAL = 10000; // 10 seconds
+
+  const updateDriverLocationNow = async (newLocation: LatLng) => {
+    console.log('Updating driver location:', newLocation);
+    
+    // Enable tracking
+    setTrackingDriverMarker(true);
+    
+    setDriverLocation(newLocation);
+    setPickupLocation(newLocation);
+    setLastDriverUpdateTime(Date.now());
+    
+    // Update pickup location name
+    const locationName = await getLocationName(newLocation.latitude, newLocation.longitude);
+    setPickupLocationName(locationName);
+    
+    // Disable tracking after 500ms (after render completes)
+    setTimeout(() => {
+      setTrackingDriverMarker(false);
+    }, 500);
+  };
+
+  // Define throttledUpdateDriverLocation after updateDriverLocationNow
+  const throttledUpdateDriverLocation = (newLocation: LatLng) => {
+    console.log('Throttled update called for location:', newLocation);
+
+    if (isFirstDriverUpdate.current) {
+      console.log('First driver location update - updating immediately');
+      isFirstDriverUpdate.current = false;
+      updateDriverLocationNow(newLocation);
+      return;
+    }
+
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastDriverUpdateTime;
+
+    // Store the latest location
+    pendingDriverLocationRef.current = newLocation;
+
+    // If enough time has passed, update immediately
+    if (timeSinceLastUpdate >= UPDATE_INTERVAL) {
+      updateDriverLocationNow(newLocation);
+      return;
+    }
+
+    // Otherwise, schedule an update if not already scheduled
+    if (!driverLocationTimerRef.current) {
+      const remainingTime = UPDATE_INTERVAL - timeSinceLastUpdate;
+      console.log(`Scheduling driver location update in ${Math.ceil(remainingTime / 1000)}s`);
+      
+      driverLocationTimerRef.current = setTimeout(() => {
+        if (pendingDriverLocationRef.current) {
+          updateDriverLocationNow(pendingDriverLocationRef.current);
+        }
+        driverLocationTimerRef.current = null;
+      }, remainingTime);
+    }
+  };
 
   // Update all data when params change
   useEffect(() => {
@@ -330,6 +394,8 @@ const RideTracking = () => {
     if (!driverId) return;
 
     const fetchDriverLocation = async () => {
+      console.log('Fetching initial driver location for driverId:', driverId);
+      
       const { data, error } = await supabase
         .from('drivers')
         .select('latitude, longitude')
@@ -337,13 +403,13 @@ const RideTracking = () => {
         .single();
 
       if (!error && data) {
+        console.log('Initial driver location fetched:', data);
         const jeepLocation = { latitude: data.latitude, longitude: data.longitude };
-        setDriverLocation(jeepLocation);
-        setPickupLocation(jeepLocation);
         
-        // Get pickup location name
-        const locationName = await getLocationName(data.latitude, data.longitude);
-        setPickupLocationName(locationName);
+        // Use throttled update to handle the first location
+        throttledUpdateDriverLocation(jeepLocation);
+      } else {
+        console.error('Error fetching initial driver location:', error);
       }
     };
 
@@ -539,19 +605,13 @@ const RideTracking = () => {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'drivers', filter: `driver_id=eq.${driverId}` },
-        async (payload) => {
-          console.log('Driver location update received:', payload);
+        (payload) => {
+          console.log('Driver location update received via subscription:', payload);
           const newLocation = {
             latitude: payload.new.latitude,
             longitude: payload.new.longitude,
           };
-          console.log('New driver location:', newLocation);
-          setDriverLocation(newLocation);
-          setPickupLocation(newLocation);
-          
-          // Update pickup location name
-          const locationName = await getLocationName(newLocation.latitude, newLocation.longitude);
-          setPickupLocationName(locationName);
+          throttledUpdateDriverLocation(newLocation);
         }
       )
       .subscribe((status) => {
@@ -560,6 +620,12 @@ const RideTracking = () => {
 
     return () => {
       console.log('Cleaning up driver location subscription');
+      if (driverLocationTimerRef.current) {
+        clearTimeout(driverLocationTimerRef.current);
+        driverLocationTimerRef.current = null;
+      }
+      // Reset first update flag when unmounting
+      isFirstDriverUpdate.current = true;
       supabase.removeChannel(subscription);
     };
   }, [driverId]);
@@ -755,21 +821,44 @@ const RideTracking = () => {
   };
 
   const getInitialRegion = () => {
-    const points = [userLocation, driverLocation, destination, pickupLocation].filter(Boolean) as LatLng[];
-    if (points.length === 0) return { latitude: 14.5995, longitude: 120.9842, latitudeDelta: 0.1, longitudeDelta: 0.1 };
-
-    const lats = points.map(p => p.latitude);
-    const lngs = points.map(p => p.longitude);
-    const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
-    const midLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
-
-    return {
-      latitude: midLat,
-      longitude: midLng,
-      latitudeDelta: Math.max(...lats) - Math.min(...lats) + 0.1,
-      longitudeDelta: Math.max(...lngs) - Math.min(...lngs) + 0.1,
+    // Return a simple default region
+    if (userLocation) {
+      return {
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      };
+    }
+    return { 
+      latitude: 14.5995, 
+      longitude: 120.9842, 
+      latitudeDelta: 0.02, 
+      longitudeDelta: 0.02 
     };
   };
+
+  // Then use this to fit all markers after map loads
+  useEffect(() => {
+    if (!mapRef.current) return;
+    
+    const points = [userLocation, driverLocation, destination, pickupLocation].filter(Boolean) as LatLng[];
+    
+    if (points.length > 1) {
+      // Wait a bit for map to fully load
+      setTimeout(() => {
+        mapRef.current?.fitToCoordinates(points, {
+          edgePadding: { 
+            top: 100,    // Adjust these for tighter fit
+            right: 50, 
+            bottom: 300,  // More space at bottom for your modal
+            left: 50 
+          },
+          animated: true,
+        });
+      }, 500);
+    }
+  }, [userLocation, driverLocation, destination, pickupLocation]);
 
   if (!userLocation && !driverLocation && !destination && loading) {
     return (
@@ -895,7 +984,7 @@ const RideTracking = () => {
         {userLocation && <Marker coordinate={userLocation} title="You" pinColor="blue" />}
         {pickupLocation && rideStatus === 'pending' && <></>}
         {driverLocation && (
-          <Marker coordinate={driverLocation} title="Driver">
+          <Marker coordinate={driverLocation} title="Driver" tracksViewChanges={trackingDriverMarker}>
             <View className="bg-white rounded-full p-2 border-2 border-[#996FD6]">
               <Image source={require('@/assets/images/jeep_icon.png')} className='w-[30] h-[25]'/>
             </View>

@@ -104,8 +104,36 @@ const MapScreen = () => {
   const [filteredDrivers, setFilteredDrivers] = useState<Driver[]>([]);
   const [selectedJeepCode, setSelectedJeepCode] = useState<string | null>(null);
   const [showDrivers, setShowDrivers] = useState(false);
-
   const [mapKey, setMapKey] = useState(0);
+
+  const [trackingMarkers, setTrackingMarkers] = useState<Record<string, boolean>>({});
+
+  // Watch for driver updates (both all drivers and filtered drivers)
+  useEffect(() => {
+    const driversToTrack = showDrivers ? filteredDrivers : drivers;
+    
+    if (driversToTrack && driversToTrack.length > 0) {
+      console.log('Setting up tracking for drivers:', driversToTrack.length);
+      
+      // Turn tracking ON
+      const tracking: Record<string, boolean> = {};
+      driversToTrack.forEach(driver => {
+        tracking[driver.driver_id] = true;
+      });
+      setTrackingMarkers(tracking);
+
+      // Turn tracking OFF after 1 second
+      const timer = setTimeout(() => {
+        const noTracking: Record<string, boolean> = {};
+        driversToTrack.forEach(driver => {
+          noTracking[driver.driver_id] = false;
+        });
+        setTrackingMarkers(noTracking);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [drivers, filteredDrivers, showDrivers]); // Re-run when any of these change
 
   // Comprehensive reset function
   const resetRouteState = () => {
@@ -437,7 +465,7 @@ const MapScreen = () => {
         .from('drivers')
         .select('driver_id, latitude, longitude, jeep_code')
         .eq('jeep_code', jeepCode)
-        .eq('is_online', 'true');
+        .eq('is_online', true);
 
       if (error) {
         console.error('Error fetching drivers:', error);
@@ -681,6 +709,7 @@ const MapScreen = () => {
               key={driver.driver_id}
               coordinate={{ latitude: driver.latitude, longitude: driver.longitude }}
               title={`${driver.jeep_code} - Tap to book`}
+              tracksViewChanges={trackingMarkers[driver.driver_id] ?? false}
               onPress={() => {
                 console.log('Marker pressed for driver:', driver.driver_id);
                 

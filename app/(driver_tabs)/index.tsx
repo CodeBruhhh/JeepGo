@@ -104,8 +104,8 @@ export default function DriverHome() {
   const [activeTab, setActiveTab] = useState<'requests' | 'passengers'>('requests')
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null)
   const [mapRegion, setMapRegion] = useState({
-    latitude: 14.6760,
-    longitude: 121.0437,
+    latitude: 10.3157,
+    longitude: 123.8854,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   })

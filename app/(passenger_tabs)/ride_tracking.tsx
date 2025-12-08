@@ -17,8 +17,13 @@ import {
   View
 } from 'react-native';
 import MapView, { LatLng, Marker, Polyline } from 'react-native-maps';
+import Constants from 'expo-constants';
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAPS_API_KEY =
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+  (Constants.expoConfig?.extra as { googleMapsApiKey?: string })?.googleMapsApiKey ||
+  '';
+
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const MAX_TRANSLATE = SCREEN_HEIGHT * 0.5;
 const MIN_TRANSLATE = SCREEN_HEIGHT * 0.85;

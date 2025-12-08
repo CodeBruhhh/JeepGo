@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import { useAuthContext } from '@/hooks/use-auth-context';
+import Constants from 'expo-constants';
 
 const { width } = Dimensions.get('window');
 
 // Initialize Supabase client (make sure to set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env)
 const supabase = createClient(
-  process.env.EXPO_PUBLIC_SUPABASE_URL || '',
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || ''
+  (Constants.expoConfig?.extra as { supabaseUrl?: string })?.supabaseUrl || '',
+  (Constants.expoConfig?.extra as { supabaseAnonKey?: string })?.supabaseAnonKey || ''
 );
 
 interface AnalyticsData {

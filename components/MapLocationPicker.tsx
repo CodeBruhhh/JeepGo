@@ -44,9 +44,9 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
   const [currentRegion, setCurrentRegion] = useState(initialRegion);
 
   const googleApiKey =
-    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
-    (Constants?.expoConfig?.extra as { googleMapsApiKey?: string })?.googleMapsApiKey ||
-    '';
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+  (Constants.expoConfig?.extra as { googleMapsApiKey?: string })?.googleMapsApiKey ||
+  '';
 
   // Reverse geocode coordinates to get address name
   const reverseGeocode = useCallback(

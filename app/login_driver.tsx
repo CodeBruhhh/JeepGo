@@ -3,6 +3,7 @@ import { GoogleSignin, GoogleSigninButton, statusCodes } from '@react-native-goo
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from 'react';
 import { Alert, Image, Modal, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Constants from 'expo-constants';
 
 export default function LogInScreen() {
 
@@ -135,9 +136,11 @@ export default function LogInScreen() {
 
 
   useEffect(() => {
+    const webClientId = Constants.expoConfig?.extra?.googleAuthWebClientId ?? '';
+
     GoogleSignin.configure({
       scopes: ['email', 'profile'],
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_AUTH_WEB_CLIENT_ID,
+      webClientId,
       offlineAccess: true,
     });
   }, []);

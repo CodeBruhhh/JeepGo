@@ -12,6 +12,7 @@ interface UserInfo {
   email: string;
   role: string;
   phone_number: string | null;
+  passenger_type: 'Regular' | 'Student' | 'Senior' | 'PWD';
 }
 
 export default function account() {
@@ -27,6 +28,8 @@ export default function account() {
   const [editedFullName, setEditedFullName] = useState('');
   const [editedPhoneNumber, setEditedPhoneNumber] = useState('');
   const [editedPhotoUrl, setEditedPhotoUrl] = useState<string | null>(null);
+  const [editedPassengerType, setEditedPassengerType] = useState<'Regular' | 'Student' | 'Senior' | 'PWD'>('Regular');
+  const [showPassengerTypeDropdown, setShowPassengerTypeDropdown] = useState(false);
   
   // Password change fields
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -45,17 +48,28 @@ export default function account() {
       }
 
       // Fetch user info
-      const { data } = await supabase
+      const { data: userInfoData } = await supabase
         .from("user_info")
         .select("*")
         .eq("user_id", auth.user.id)
         .single();
 
-      if (data) {
-        setUserInfo(data);
-        setEditedFullName(data.full_name);
-        setEditedPhoneNumber(data.phone_number || '');
-        setEditedPhotoUrl(data.photo_url);
+      if (userInfoData) {
+        setUserInfo(userInfoData);
+        setEditedFullName(userInfoData.full_name);
+        setEditedPhoneNumber(userInfoData.phone_number || '');
+        setEditedPhotoUrl(userInfoData.photo_url);
+      }
+
+      // Fetch passenger type from passengers table
+      const { data: passengerData } = await supabase
+        .from("passengers")
+        .select("passenger_type")
+        .eq("passenger_id", auth.user.id)
+        .single();
+
+      if (passengerData?.passenger_type) {
+        setEditedPassengerType(passengerData.passenger_type);
       }
 
       // Fetch total trips count for passenger
@@ -71,6 +85,13 @@ export default function account() {
 
     fetchUserInfo();
   }, []);
+
+  useEffect(() => {
+    // Close dropdown when editing is disabled
+    if (!isEditing) {
+      setShowPassengerTypeDropdown(false);
+    }
+  }, [isEditing]);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -114,6 +135,16 @@ export default function account() {
 
       if (userError) throw userError;
 
+      // Update passenger type in passengers table
+      const { error: passengerError } = await supabase
+        .from("passengers")
+        .update({
+          passenger_type: editedPassengerType,
+        })
+        .eq("passenger_id", auth.user.id);
+
+      if (passengerError) throw passengerError;
+
       // Update local state
       if (userInfo) {
         setUserInfo({
@@ -121,6 +152,7 @@ export default function account() {
           full_name: editedFullName,
           phone_number: editedPhoneNumber || null,
           photo_url: editedPhotoUrl,
+          passenger_type: editedPassengerType,
         });
       }
 
@@ -194,6 +226,8 @@ export default function account() {
     setEditedFullName(userInfo?.full_name || '');
     setEditedPhoneNumber(userInfo?.phone_number || '');
     setEditedPhotoUrl(userInfo?.photo_url || null);
+    setEditedPassengerType(userInfo?.passenger_type || 'Regular');
+    setShowPassengerTypeDropdown(false); // Close dropdown
     setIsEditing(false);
     setShowPasswordChange(false);
     setCurrentPassword('');
@@ -289,6 +323,93 @@ export default function account() {
         ) : (
           <View className='w-[100%] h-[50] bg-white rounded-2xl justify-center pl-5 mb-[20]'>
             <Text>{userInfo?.phone_number || 'Not provided'}</Text>
+          </View>
+        )}
+
+        {/* Passenger Type Field */}
+        <Text className='font-bold mb-[10]'>Passenger Type: </Text>
+        {isEditing ? (
+          <View className='w-[100%] mb-[20]'>
+            <TouchableOpacity
+              onPress={() => setShowPassengerTypeDropdown(!showPassengerTypeDropdown)}
+              className='w-[100%] h-[50] bg-white rounded-2xl justify-center pl-5 flex-row items-center'
+              style={{ borderWidth: 1, borderColor: '#E5E5E5' }}
+            >
+              <Text className="flex-1">{editedPassengerType}</Text>
+              <Ionicons 
+                name={showPassengerTypeDropdown ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color="#666" 
+                style={{ marginRight: 15 }}
+              />
+            </TouchableOpacity>
+            
+            {/* Dropdown Options */}
+            {showPassengerTypeDropdown && (
+              <View className='w-[100%] bg-white rounded-2xl mt-2 overflow-hidden' style={styles.dropdownShadow}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditedPassengerType('Regular');
+                    setShowPassengerTypeDropdown(false);
+                  }}
+                  className='w-[100%] h-[50] justify-center pl-5 border-b border-gray-200'
+                  style={{ backgroundColor: editedPassengerType === 'Regular' ? '#F3E8FF' : 'white' }}
+                >
+                  <Text className={editedPassengerType === 'Regular' ? 'font-semibold text-[#550CBF]' : ''}>
+                    Regular
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditedPassengerType('Student');
+                    setShowPassengerTypeDropdown(false);
+                  }}
+                  className='w-[100%] h-[50] justify-center pl-5 border-b border-gray-200'
+                  style={{ backgroundColor: editedPassengerType === 'Student' ? '#F3E8FF' : 'white' }}
+                >
+                  <Text className={editedPassengerType === 'Student' ? 'font-semibold text-[#550CBF]' : ''}>
+                    Student
+                  </Text>
+                  <Text className="text-xs text-green-600 pl-5">20% discount on fares</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditedPassengerType('Senior');
+                    setShowPassengerTypeDropdown(false);
+                  }}
+                  className='w-[100%] h-[50] justify-center pl-5 border-b border-gray-200'
+                  style={{ backgroundColor: editedPassengerType === 'Senior' ? '#F3E8FF' : 'white' }}
+                >
+                  <Text className={editedPassengerType === 'Senior' ? 'font-semibold text-[#550CBF]' : ''}>
+                    Senior Citizen
+                  </Text>
+                  <Text className="text-xs text-green-600 pl-5">20% discount on fares</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditedPassengerType('PWD');
+                    setShowPassengerTypeDropdown(false);
+                  }}
+                  className='w-[100%] h-[50] justify-center pl-5'
+                  style={{ backgroundColor: editedPassengerType === 'PWD' ? '#F3E8FF' : 'white' }}
+                >
+                  <Text className={editedPassengerType === 'PWD' ? 'font-semibold text-[#550CBF]' : ''}>
+                    PWD
+                  </Text>
+                  <Text className="text-xs text-green-600 pl-5">20% discount on fares</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        ) : (
+          <View className='w-[100%] h-[50] bg-white rounded-2xl justify-center pl-5 mb-[20]'>
+            <Text>{editedPassengerType}</Text>
+            {(editedPassengerType === 'Student' || editedPassengerType === 'Senior' || editedPassengerType === 'PWD') && (
+              <Text className="text-xs text-green-600"> (20% discount on fares)</Text>
+            )}
           </View>
         )}
 
@@ -391,5 +512,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  dropdownShadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
   }
 });

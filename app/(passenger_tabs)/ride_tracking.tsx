@@ -65,25 +65,75 @@ const RideTracking = () => {
   const [destination, setDestination] = useState<LatLng | null>(
     lat && lng ? { latitude: Number(lat), longitude: Number(lng) } : null
   );
+  const [passengerType, setPassengerType] = useState<'regular' | 'student' | 'senior' | 'pwd'>('regular');
   const [destinationName, setDestinationName] = useState<string | null>(name || null);
   const [rideStartTime, setRideStartTime] = useState<string | null>(null);
   const [totalDistance, setTotalDistance] = useState<number>(0);
   const [fareAmount, setFareAmount] = useState<number>(0);
   
-  // Calculate fare based on distance (base fare + per km rate)
-  const calculateFare = (distanceInMeters: number): number => {
+  // Calculate fare based on distance and passenger type (base fare + per km rate)
+  const calculateFare = (distanceInMeters: number, type: 'regular' | 'student' | 'senior' | 'pwd' = 'regular'): number => {
     const distanceInKm = distanceInMeters / 1000;
     const baseFare = 13; // Base fare in PHP
     const perKmRate = 1.80; // Rate per km in PHP
     
+    let totalFare: number;
+    
     if (distanceInKm <= 4) {
-      return baseFare;
+      totalFare = baseFare;
     } else {
       const additionalKm = distanceInKm - 4;
-      const totalFare = baseFare + (additionalKm * perKmRate);
-      return Math.round(totalFare * 100) / 100; // Round to 2 decimal places
+      totalFare = baseFare + (additionalKm * perKmRate);
     }
+    
+    // Apply discounts based on passenger type
+    // Senior Citizens and PWD get 20% discount as per Philippine law
+    // Students get 20% discount (adjustable based on your policy)
+    switch (type.toLowerCase()) {
+      case 'senior':
+      case 'pwd':
+        totalFare = totalFare * 0.80; // 20% discount
+        break;
+      case 'student':
+        totalFare = totalFare * 0.80; // 20% discount
+        break;
+      case 'regular':
+      default:
+        // No discount
+        break;
+    }
+    
+    return Math.round(totalFare * 100) / 100; // Round to 2 decimal places
   };
+
+  // Fetch passenger type
+  useEffect(() => {
+    const fetchPassengerType = async () => {
+      if (!passengerId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('passengers')
+          .select('passenger_type')
+          .eq('passenger_id', passengerId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching passenger type:', error);
+          return;
+        }
+
+        if (data?.passenger_type) {
+          setPassengerType(data.passenger_type.toLowerCase());
+          console.log('Passenger type:', data.passenger_type);
+        }
+      } catch (err) {
+        console.error('Passenger type fetch error:', err);
+      }
+    };
+
+    fetchPassengerType();
+  }, [passengerId]);
   
   // Route coordinates for polylines
   const [userToPickupRoute, setUserToPickupRoute] = useState<LatLng[]>([]);
@@ -111,12 +161,10 @@ const RideTracking = () => {
     setTrackingDriverMarker(true);
     
     setDriverLocation(newLocation);
-    setPickupLocation(newLocation);
     setLastDriverUpdateTime(Date.now());
     
     // Update pickup location name
     const locationName = await getLocationName(newLocation.latitude, newLocation.longitude);
-    setPickupLocationName(locationName);
     
     // Disable tracking after 500ms (after render completes)
     setTimeout(() => {
@@ -241,6 +289,113 @@ const RideTracking = () => {
     return points;
   };
 
+  // Find nearest stop for pickup location
+  useEffect(() => {
+    const findAndSetNearestStop = async () => {
+      // Only run when ride is accepted and we have all necessary data
+      if (
+        !userLocation || 
+        !destination || 
+        !driverInfo?.jeepCode ||
+        pickupLocation // Don't run if pickup location is already set
+      ) {
+        return;
+      }
+
+      console.log('Finding nearest jeepney stop...');
+
+      try {
+        const url =
+          `https://maps.googleapis.com/maps/api/directions/json?origin=${userLocation.latitude},${userLocation.longitude}` +
+          `&destination=${destination.latitude},${destination.longitude}&mode=transit&alternatives=true&key=${GOOGLE_MAPS_API_KEY}`;
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data.routes?.length) {
+          console.log('No routes found');
+          // Fallback to driver location
+          if (driverLocation) {
+            setPickupLocation(driverLocation);
+            const locationName = await getLocationName(
+              driverLocation.latitude,
+              driverLocation.longitude
+            );
+            setPickupLocationName(locationName);
+          }
+          return;
+        }
+
+        // Find the route that matches the jeepney code
+        const matchingRoute = data.routes.find((route: any) => {
+          const steps = route.legs?.[0]?.steps || [];
+          return steps.some(
+            (step: any) =>
+              step.transit_details &&
+              step.transit_details.line?.short_name === driverInfo.jeepCode
+          );
+        });
+
+        if (!matchingRoute) {
+          console.log('No matching route found for jeep code:', driverInfo.jeepCode);
+          // Fallback to driver location
+          if (driverLocation) {
+            setPickupLocation(driverLocation);
+            const locationName = await getLocationName(
+              driverLocation.latitude,
+              driverLocation.longitude
+            );
+            setPickupLocationName(locationName);
+          }
+          return;
+        }
+
+        // Find the first transit step (boarding point)
+        const steps = matchingRoute.legs[0].steps;
+        const transitStep = steps.find((step: any) => step.travel_mode === 'TRANSIT');
+
+        if (!transitStep?.transit_details?.departure_stop) {
+          console.log('No departure stop found');
+          // Fallback to driver location
+          if (driverLocation) {
+            setPickupLocation(driverLocation);
+            const locationName = await getLocationName(
+              driverLocation.latitude,
+              driverLocation.longitude
+            );
+            setPickupLocationName(locationName);
+          }
+          return;
+        }
+
+        const departureStop = transitStep.transit_details.departure_stop;
+        const stopLocation: LatLng = {
+          latitude: departureStop.location.lat,
+          longitude: departureStop.location.lng,
+        };
+
+        console.log('Found nearest jeepney stop:', departureStop.name, stopLocation);
+
+        setPickupLocation(stopLocation);
+        setPickupLocationName(departureStop.name);
+
+      } catch (error) {
+        console.error('Error finding nearest jeepney stop:', error);
+        // Fallback to driver location on error
+        if (driverLocation) {
+          setPickupLocation(driverLocation);
+          const locationName = await getLocationName(
+            driverLocation.latitude,
+            driverLocation.longitude
+          );
+          setPickupLocationName(locationName);
+        }
+      }
+    };
+
+    findAndSetNearestStop();
+  }, [rideStatus, userLocation, destination, driverInfo, driverLocation]);
+
   // Get location name from coordinates using reverse geocoding
   const getLocationName = async (lat: number, lng: number): Promise<string> => {
     try {
@@ -307,18 +462,26 @@ const RideTracking = () => {
     }
   }, [userLocation, pickupLocation]);
 
-  // Update jeep route from driver location to destination and track distance
+  // Update jeep route from driver location to destination
   useEffect(() => {
     if (driverLocation && destination && driverInfo?.jeepCode) {
       fetchRoute(driverLocation, destination, driverInfo.jeepCode).then(({ route, distance }) => {
         setJeepToDestinationRoute(route);
-        setTotalDistance(distance);
-        const fare = calculateFare(distance);
-        setFareAmount(fare);
-        console.log(`Distance: ${(distance).toFixed(2)} km, Fare: ₱${fare}`);
       });
     }
   }, [driverLocation, destination, driverInfo]);
+
+  // Update trip distance and fare by using pick up location and destination
+  useEffect(() => {
+    if (pickupLocation && destination && driverInfo?.jeepCode) {
+      fetchRoute(pickupLocation, destination, driverInfo.jeepCode).then(({ route, distance }) => {
+        setTotalDistance(distance);
+        const fare = calculateFare(distance, passengerType); // Pass passenger type
+        setFareAmount(fare);
+        console.log(`Distance: ${(distance).toFixed(2)} km, Fare: ₱${fare.toFixed(2)}, Type: ${passengerType}`);
+      });
+    }
+  }, [pickupLocation, destination, driverInfo, passengerType]); // Add passengerType to dependencies
 
   // Fetch passenger location
   useEffect(() => {
@@ -1091,8 +1254,16 @@ const RideTracking = () => {
                 <Text className="text-lg font-bold mb-2">Trip Details</Text>
                 <View className="mb-3 p-3 rounded-lg bg-gray-50">
                   <Text className="text-sm text-gray-700">
+                    Passenger Type: <Text className="font-semibold capitalize">{passengerType}</Text>
+                    {(passengerType === 'senior' || passengerType === 'pwd' || passengerType === 'student') && (
+                      <Text className="text-green-600"> (20% discount applied)</Text>
+                    )}
+                  </Text>
+
+                  <Text className="text-sm text-gray-700">
                     Distance: <Text className="font-semibold">{(totalDistance).toFixed(2)} km</Text>
                   </Text>
+
                   <Text className="text-sm text-gray-700 mt-1">
                     Fare: <Text className="font-semibold">₱{fareAmount.toFixed(2)}</Text>
                   </Text>

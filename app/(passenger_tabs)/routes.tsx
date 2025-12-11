@@ -39,19 +39,6 @@ const RoutesScreen = () => {
   const [visibleRoutes, setVisibleRoutes] = useState<Set<number>>(new Set());
   const { setShowBar, headerRef } = useNavigationContext();
 
-  // Show/hide header and footer based on bottom sheet state
-  useEffect(() => {
-    if (isExpanded) {
-      // Hide header and footer when expanded
-      setShowBar(false);
-      headerRef.current?.hideHeader();
-    } else {
-      // Show header and footer when collapsed
-      setShowBar(true);
-      headerRef.current?.showHeader();
-    }
-  }, [isExpanded, setShowBar, headerRef]);
-
   // Extract coordinates from GeoJSON
   const citUToEmallWaypoints = citUToEmallRoute.features[0].geometry.coordinates.map((coord: any) => ({
     latitude: coord[1] as number,

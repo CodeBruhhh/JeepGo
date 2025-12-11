@@ -1,10 +1,10 @@
 
 import { supabase } from '@/services/supabase';
 import { GoogleSignin, GoogleSigninButton, statusCodes } from '@react-native-google-signin/google-signin';
+import Constants from 'expo-constants';
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from 'react';
 import { Alert, Image, Modal, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Constants from 'expo-constants';
 
 export default function LogInScreen() {
 

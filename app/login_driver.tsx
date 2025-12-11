@@ -1,9 +1,9 @@
 import { supabase } from '@/services/supabase';
 import { GoogleSignin, GoogleSigninButton, statusCodes } from '@react-native-google-signin/google-signin';
+import Constants from 'expo-constants';
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from 'react';
 import { Alert, Image, Modal, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Constants from 'expo-constants';
 
 export default function LogInScreen() {
 
@@ -235,7 +235,7 @@ export default function LogInScreen() {
         // If driver, also insert into driver table
         if (role === "driver") {
           const { error: driverError } = await supabase
-            .from('driver')
+            .from('drivers')
             .insert({
               driver_id: user.id
             });

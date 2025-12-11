@@ -701,9 +701,9 @@ const fares = () => {
 
   return (
     <ScrollView className="flex-1 bg-secondary" contentContainerStyle={{ paddingBottom: 120 }}>
-      <View className="px-4 pt-4">
+      <View className="px-4 pt-4 mt-[75]">
         {/* Title - Centered */}
-        <Text className="text-3xl font-bold text-primary mb-4 text-center">FARES & CALCULATOR</Text>
+        <Text className="text-3xl font-bold text-primary mb-4 text-center">FARE CALCULATOR</Text>
 
         {/* Filter Destination */}
         <View className="mb-4">

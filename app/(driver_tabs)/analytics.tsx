@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
-import { createClient } from '@supabase/supabase-js';
 import { useAuthContext } from '@/hooks/use-auth-context';
+import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -24,25 +24,35 @@ interface AnalyticsData {
 const getDateRange = (period: 'today' | 'weekly' | 'annual' | 'all') => {
   const now = new Date();
   let startDate: Date;
+  let endDate: Date;
 
   switch (period) {
     case 'today':
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      // Use local timezone for "today"
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
       break;
     case 'weekly':
       startDate = new Date(now);
-      startDate.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+      startDate.setDate(now.getDate() - now.getDay()); // Sunday
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6); // Saturday
+      endDate.setHours(23, 59, 59, 999);
       break;
     case 'annual':
-      startDate = new Date(now.getFullYear(), 0, 1);
+      startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
       break;
     case 'all':
-      startDate = new Date(2000, 0, 1); // Very old date to get all data
+      startDate = new Date(2000, 0, 1, 0, 0, 0, 0);
+      endDate = new Date(now.getFullYear() + 1, 11, 31, 23, 59, 59, 999);
       break;
   }
 
-  return { startDate: startDate.toISOString(), endDate: now.toISOString() };
+  return { startDate: startDate.toISOString(), endDate: endDate.toISOString() };
 };
+
 
 // Fetch analytics data from Supabase
 const fetchAnalyticsData = async (
@@ -51,31 +61,51 @@ const fetchAnalyticsData = async (
 ): Promise<AnalyticsData> => {
   try {
     const { startDate, endDate } = getDateRange(period);
+    const now = new Date();
+    
+    // Check current session
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    console.log('Current auth session user ID:', currentSession?.user?.id);
+    console.log('Driver ID being queried:', driverId);
+    console.log('Do they match?', currentSession?.user?.id === driverId);
+    
+    console.log('Fetching trips for driver', driverId, 'from', startDate, 'to', endDate);
+    console.log('Local time now:', now.toLocaleString());
+    console.log('Date range:', new Date(startDate).toLocaleString(), 'to', new Date(endDate).toLocaleString());
 
-    // Fetch trips data
-    const { data: trips, error: tripsError } = await supabase
+    // Fetch trips for the driver within the date range
+    const { data: trips, error: tripsError, count } = await supabase
       .from('trips')
-      .select('trip_id, start_time, end_time')
+      .select('trip_id, start_time, end_time', { count: 'exact' })
       .eq('driver_id', driverId)
       .gte('start_time', startDate)
-      .lte('start_time', endDate);
+      .lt('start_time', new Date(new Date(endDate).getTime() + 1000).toISOString());
 
-    if (tripsError) throw tripsError;
-
-    const tripIds = trips?.map((t) => t.trip_id) || [];
-    const totalTrips = tripIds.length;
-
-    // Calculate hours driven
-    let hoursDriven = 0;
-    if (trips) {
-      hoursDriven = trips.reduce((sum, trip) => {
-        const start = new Date(trip.start_time).getTime();
-        const end = new Date(trip.end_time).getTime();
-        return sum + (end - start) / (1000 * 60 * 60); // Convert ms to hours
-      }, 0);
+    if (tripsError) {
+      console.error('Trips error:', tripsError);
+      console.error('Error details:', JSON.stringify(tripsError, null, 2));
+      throw tripsError;
+    }
+    console.log('Trips fetched:', trips);
+    console.log('Total trips found:', trips?.length || 0);
+    console.log('Count from query:', count);
+    
+    // Check if RLS might be blocking
+    if (trips && trips.length === 0 && count === 0) {
+      console.warn('⚠️ No trips returned. This might be due to RLS policies. Check your Supabase RLS settings.');
     }
 
-    // Fetch payments data
+    const totalTrips = trips?.length || 0;
+
+    // Calculate hours driven
+    const hoursDriven = trips?.reduce((sum, trip) => {
+      const start = new Date(trip.start_time).getTime();
+      const end = trip.end_time ? new Date(trip.end_time).getTime() : start;
+      return sum + (end - start) / (1000 * 60 * 60); // convert ms to hours
+    }, 0) || 0;
+
+    // Fetch payments for these trips
+    const tripIds = trips?.map(t => t.trip_id) || [];
     let totalEarnings = 0;
     const dailyEarningsMap = new Map<string, number>();
 
@@ -85,26 +115,26 @@ const fetchAnalyticsData = async (
         .select('amount, payment_time')
         .in('trip_id', tripIds);
 
-      if (paymentsError) throw paymentsError;
-
-      if (payments) {
-        payments.forEach((payment) => {
-          totalEarnings += payment.amount || 0;
-
-          // Group by day (Monday-Sunday)
-          const date = new Date(payment.payment_time);
-          const dayName = date.toLocaleString('en-US', { weekday: 'long' }).toUpperCase();
-          const currentTotal = dailyEarningsMap.get(dayName) || 0;
-          dailyEarningsMap.set(dayName, currentTotal + (payment.amount || 0));
-        });
+      if (paymentsError) {
+        console.error('Payments error:', paymentsError);
+        throw paymentsError;
       }
+      console.log('Payments fetched:', payments);
+
+      payments?.forEach(payment => {
+        const amount = payment.amount || 0;
+        totalEarnings += amount;
+
+        const date = new Date(payment.payment_time);
+        const dayName = date.toLocaleString('en-US', { weekday: 'long' }).toUpperCase();
+        dailyEarningsMap.set(dayName, (dailyEarningsMap.get(dayName) || 0) + amount);
+      });
     }
 
     const averagePerTrip = totalTrips > 0 ? totalEarnings / totalTrips : 0;
 
-    // Build daily earnings array
     const daysOrder = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-    const dailyEarnings = daysOrder.map((day) => {
+    const dailyEarnings = daysOrder.map(day => {
       const value = dailyEarningsMap.get(day) || 0;
       return {
         day,
@@ -122,8 +152,8 @@ const fetchAnalyticsData = async (
       totalEarnings: 0,
       averagePerTrip: 0,
       dailyEarnings: Array.from({ length: 7 }, (_, i) => ({
-        day: ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][i],
-        value: '₱0',
+        day: ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][i],
+        value: '₱0.00',
         progress: 0,
       })),
     };
@@ -139,6 +169,16 @@ const AnalyticsOverview: React.FC = () => {
   const { session } = useAuthContext();
   const driverId = session?.user?.id || '';
 
+  // Set the session on Supabase client whenever it changes
+  useEffect(() => {
+    if (session) {
+      supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+    }
+  }, [session]);
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -147,7 +187,9 @@ const AnalyticsOverview: React.FC = () => {
       setLoading(false);
     };
 
-    loadData();
+    if (driverId) {
+      loadData();
+    }
   }, [period, driverId]);
 
   const periods = [

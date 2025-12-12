@@ -1,5 +1,6 @@
 import { supabase } from '@/services/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -17,7 +18,6 @@ import {
   View
 } from 'react-native';
 import MapView, { LatLng, Marker, Polyline } from 'react-native-maps';
-import Constants from 'expo-constants';
 
 const GOOGLE_MAPS_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
@@ -666,6 +666,38 @@ const RideTracking = () => {
       .eq('trip_id', tripId);
   };
 
+    // Create payment record when ride is accepted
+  const createPaymentRecord = async (currentTripId: string) => {
+    try {
+      const paymentData = {
+        payment_method: 'CASH',
+        trip_id: currentTripId,
+        status: 'pending',
+        amount: fareAmount.toFixed(2)
+      };
+
+      console.log('Creating initial payment record:', paymentData);
+
+      const { data, error } = await supabase
+        .from('payments')
+        .insert(paymentData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating payment record:', error);
+        return;
+      }
+
+      console.log('Payment record created:', data);
+      setPaymentId(data.payment_id);
+      setPaymentMethod('cash');
+      setPaymentStatus('pending');
+    } catch (err) {
+      console.error('Payment creation error:', err);
+    }
+  };
+
   // Subscribe to ride updates
   useEffect(() => {
     if (!requestId) {
@@ -688,7 +720,11 @@ const RideTracking = () => {
           
           // Only create trip record if ride is accepted (not denied)
           if (ride.status === 'accepted') {
-            await createOrFetchTripRecord(); 
+            const createdTripId = await createOrFetchTripRecord();
+            // Create payment record with default cash method
+            if (createdTripId && !paymentId) {
+              await createPaymentRecord(createdTripId);
+            }
           } else if (ride.status === 'denied') {
             Alert.alert('Ride request denied', 'The driver denied your ride request.', [
               { text: 'OK', onPress: () => router.back() }
@@ -720,16 +756,16 @@ const RideTracking = () => {
       console.log('Cleaning up ride subscription');
       supabase.removeChannel(subscription);
     };
-  }, [requestId, driverId, passengerId, rideStartTime, pickupLocationName, destinationName, totalDistance]);
+  }, [requestId, driverId, passengerId, rideStartTime, pickupLocationName, destinationName, totalDistance, fareAmount, paymentId]);
 
   // Subscribe to payment updates
   useEffect(() => {
-    if (!paymentId) {
-      console.log('No paymentId, skipping payment subscription');
+    if (!paymentId || !tripId) {
+      console.log('No paymentId or tripId, skipping payment subscription');
       return;
     }
 
-    console.log('Setting up payment subscription for paymentId:', paymentId);
+    console.log('Setting up payment subscription for paymentId:', paymentId, 'tripId:', tripId);
 
     const subscription = supabase
       .channel(`payment_${paymentId}`)
@@ -739,6 +775,13 @@ const RideTracking = () => {
         (payload) => {
           console.log('Payment update received:', payload);
           const payment = payload.new;
+          
+          // Verify this payment belongs to current trip
+          if (payment.trip_id !== tripId) {
+            console.log('Payment update for different trip, ignoring');
+            return;
+          }
+          
           console.log('New payment status:', payment.status);
           
           if (payment.status === 'confirmed') {
@@ -755,7 +798,7 @@ const RideTracking = () => {
       console.log('Cleaning up payment subscription');
       supabase.removeChannel(subscription);
     };
-  }, [paymentId]);
+  }, [paymentId, tripId]);
 
   // Subscribe to driver location
   useEffect(() => {
@@ -891,82 +934,86 @@ const RideTracking = () => {
   };
 
   const handlePaymentSelection = async (method: 'cash' | 'gcash') => {
-    if (!tripId) {
-      console.log('No tripId available yet');
-      return;
-    }
-    
-    if (paymentStatus === 'confirmed') {
-      console.log('Payment already confirmed');
+  if (!tripId) {
+    console.log('No tripId available yet');
+    return;
+  }
+
+  try {
+    // Check for existing pending payment for this trip
+    const { data: existingPayment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('trip_id', tripId)
+      .eq('status', 'pending')
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows found
+      console.error('Error fetching existing payment:', fetchError);
       return;
     }
 
-    // If changing payment method and there's an existing pending payment, delete it first
-    if (paymentId && paymentMethod && paymentMethod !== method && paymentStatus === 'pending') {
-      console.log('Deleting previous pending payment:', paymentId);
-      
-      const { error: deleteError } = await supabase
-        .from('payments')
-        .delete()
-        .eq('payment_id', paymentId);
+    if (existingPayment) {
+      console.log('Found existing pending payment:', existingPayment.payment_id);
 
-      if (deleteError) {
-        console.error('Error deleting previous payment:', deleteError);
+      // If method is different, update it
+      if (existingPayment.payment_method.toLowerCase() !== method) {
+        const { error: updateError } = await supabase
+          .from('payments')
+          .update({ payment_method: method.toUpperCase() })
+          .eq('payment_id', existingPayment.payment_id);
+
+        if (updateError) {
+          console.error('Error updating payment method:', updateError);
+        } else {
+          console.log('Payment method updated:', method);
+        }
+      } else {
+        console.log('Payment method already selected and pending');
       }
-      
-      // Reset payment states
-      setPaymentId(null);
-      setPaymentStatus(null);
-    }
 
-    // If clicking the same method that's already selected and pending, don't create duplicate
-    if (paymentMethod === method && paymentStatus === 'pending') {
-      console.log('Payment method already selected and pending');
+      // Update local state
+      setPaymentId(existingPayment.payment_id);
+      setPaymentMethod(method);
+      setPaymentStatus('pending');
+      setShowGCashQR(method === 'gcash');
       return;
     }
 
+    // No existing pending payment — create a new one
+    const paymentData = {
+      payment_method: method.toUpperCase(),
+      trip_id: tripId,
+      status: 'pending',
+      amount: fareAmount.toFixed(2),
+    };
+
+    console.log('Creating new payment record:', paymentData);
+
+    const { data: newPayment, error: insertError } = await supabase
+      .from('payments')
+      .insert(paymentData)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error creating payment record:', insertError);
+      Alert.alert('Error', 'Failed to process payment selection.');
+      setPaymentStatus(null);
+      return;
+    }
+
+    console.log('Payment record created:', newPayment);
+    setPaymentId(newPayment.payment_id);
     setPaymentMethod(method);
     setPaymentStatus('pending');
-    
-    // Show GCash QR modal if gcash is selected
-    if (method === 'gcash') {
-      setShowGCashQR(true);
-    } else {
-      setShowGCashQR(false);
-    }
-
-    try {
-      // Create new payment record
-      const paymentData = {
-        payment_method: method.toUpperCase(),
-        trip_id: tripId,
-        status: 'pending',
-        amount: fareAmount.toFixed(2) // Store in pesos
-      };
-
-      console.log('Creating payment record:', paymentData);
-
-      const { data, error } = await supabase
-        .from('payments')
-        .insert(paymentData)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating payment record:', error);
-        Alert.alert('Error', 'Failed to process payment selection.');
-        setPaymentStatus(null);
-        return;
-      }
-
-      console.log('Payment record created:', data);
-      setPaymentId(data.payment_id);
-    } catch (err) {
-      console.error('Payment selection error:', err);
-      setPaymentStatus(null);
-      setPaymentMethod(null);
-    }
-  };
+    setShowGCashQR(method === 'gcash');
+  } catch (err) {
+    console.error('Payment selection error:', err);
+    setPaymentStatus(null);
+    setPaymentMethod(null);
+  }
+};
 
   const getStatusText = () => {
     switch (rideStatus) {

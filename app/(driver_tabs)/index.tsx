@@ -62,6 +62,10 @@ type UserInfo = {
   photo_url?: string | null
 }
 
+type RideRequestWithPassenger = RideRequest & {
+  passenger_info?: UserInfo
+}
+
 type TripWithPassenger = Trip & {
   passenger?: Passenger
   passenger_info?: UserInfo
@@ -99,7 +103,7 @@ export default function DriverHome() {
   const { profile, isLoading: authLoading } = useAuthContext()
   const [loading, setLoading] = useState(true)
   const [driver, setDriver] = useState<any | null>(null)
-  const [rideRequests, setRideRequests] = useState<RideRequest[]>([])
+  const [rideRequests, setRideRequests] = useState<RideRequestWithPassenger[]>([])
   const [activeTrips, setActiveTrips] = useState<TripWithPassenger[]>([])
   const [activeTab, setActiveTab] = useState<'requests' | 'passengers'>('requests')
   const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -136,14 +140,13 @@ export default function DriverHome() {
         setDriverLocation({ latitude, longitude })
         setMapRegion(prev => ({ ...prev, latitude, longitude }))
 
-        // Update driver location in database (if drivers table has latitude/longitude fields)
+        // Update driver location in database
         if (driverId) {
           await supabase
             .from('drivers')
             .update({ 
               latitude: latitude,
               longitude: longitude,
-              last_location_update: new Date().toISOString()
             })
             .eq('driver_id', driverId)
         }
@@ -152,21 +155,19 @@ export default function DriverHome() {
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.High,
-            timeInterval: 5000, // Update every 5 seconds
-            distanceInterval: 10, // Update every 10 meters
+            timeInterval: 5000,
+            distanceInterval: 10,
           },
           (location) => {
             const { latitude, longitude } = location.coords
             setDriverLocation({ latitude, longitude })
 
-            // Update driver location in database
             if (driverId) {
               supabase
                 .from('drivers')
                 .update({ 
                   latitude: latitude,
                   longitude: longitude,
-                  last_location_update: new Date().toISOString()
                 })
                 .eq('driver_id', driverId)
                 .then()
@@ -188,38 +189,13 @@ export default function DriverHome() {
       }
     }
   }, [driverId, driver?.is_online])
-
-  // Fetch passenger locations for active trips
-  useEffect(() => {
-    if (!driverId || activeTrips.length === 0) return
-
-    const interval = setInterval(async () => {
-      const passengerIds = activeTrips.map(t => t.passenger_id)
-      
-      // Fetch passenger latitude/longitude from passengers table
-      const { data: passengers } = await supabase
-        .from('passengers')
-        .select('passenger_id, latitude, longitude')
-        .in('passenger_id', passengerIds)
-
-      if (passengers) {
-        setActiveTrips(prev => 
-          prev.map(trip => {
-            const passenger = passengers.find(p => p.passenger_id === trip.passenger_id)
-            return passenger ? { ...trip, passenger } : trip
-          })
-        )
-      }
-    }, 5000) // Update every 5 seconds
-
-    return () => clearInterval(interval)
-  }, [driverId, activeTrips.length])
  
   useEffect(() => {
     if (!driverId) return
  
     let channel: any
     let tripChannel: any
+    let paymentChannel: any
  
     const fetchInitial = async () => {
       setLoading(true)
@@ -233,15 +209,31 @@ export default function DriverHome() {
           .single()
         setDriver(d)
  
-        // Fetch pending/searching ride requests (no driver assigned or assigned to this driver)
+        // Fetch pending ride requests with passenger info
         const { data: requests } = await supabase
           .from('ride_requests')
-          .select('*')
+          .select(`
+            *,
+            user_info!ride_requests_passenger_id_fkey (
+              user_id,
+              full_name,
+              email,
+              phone_number,
+              role,
+              photo_url
+            )
+          `)
           .or(`driver_id.is.null,driver_id.eq.${driverId}`)
           .eq('status', 'pending')
           .order('created_at', { ascending: false })
  
-        setRideRequests((requests as RideRequest[]) || [])
+        // Transform the data to flatten the structure
+        const transformedRequests = (requests || []).map((req: any) => ({
+          ...req,
+          passenger_info: req.user_info
+        }))
+
+        setRideRequests(transformedRequests as RideRequestWithPassenger[])
  
         // Fetch active trips for this driver with passenger info
         const { data: trips, error: tripsError } = await supabase
@@ -278,17 +270,22 @@ export default function DriverHome() {
           console.error('Error fetching trips:', tripsError)
         }
 
-        // Transform the data to flatten the structure
-        const transformedTrips = (trips || []).map((trip: any) => ({
-          ...trip,
-          passenger: {
-            passenger_id: trip.passengers?.passenger_id,
-            latitude: trip.passengers?.latitude,
-            longitude: trip.passengers?.longitude
-          },
-          passenger_info: trip.passengers?.user_info,
-          payment: Array.isArray(trip.payments) ? trip.payments[0] : trip.payments
-        }))
+        // Transform the data - use pick_up coordinates for passenger location
+        const transformedTrips = (trips || []).map((trip: any) => {
+          // Parse pick_up coordinates (format: "lat, lng")
+          const pickUpCoords = trip.pick_up.split(',').map((c: string) => parseFloat(c.trim()))
+          
+          return {
+            ...trip,
+            passenger: {
+              passenger_id: trip.passengers?.passenger_id,
+              latitude: pickUpCoords[0] || null,
+              longitude: pickUpCoords[1] || null
+            },
+            passenger_info: trip.passengers?.user_info,
+            payment: Array.isArray(trip.payments) ? trip.payments[0] : trip.payments
+          }
+        })
 
         setActiveTrips(transformedTrips as TripWithPassenger[])
  
@@ -303,14 +300,27 @@ export default function DriverHome() {
               table: 'ride_requests',
               filter: `status=eq.pending`
             }, 
-            (payload) => {
+            async (payload) => {
               const ev = payload.eventType
               const newRow = payload.new as RideRequest | null
               const oldRow = payload.old as RideRequest | null
  
               if (ev === 'INSERT' && newRow) {
                 console.log('New ride request:', newRow)
-                setRideRequests((prev) => [newRow, ...prev])
+                
+                // Fetch passenger info for the new request
+                const { data: passengerInfo } = await supabase
+                  .from('user_info')
+                  .select('user_id, full_name, email, phone_number, role, photo_url')
+                  .eq('user_id', newRow.passenger_id)
+                  .single()
+                
+                const enrichedRequest: RideRequestWithPassenger = {
+                  ...newRow,
+                  passenger_info: passengerInfo || undefined
+                }
+                
+                setRideRequests((prev) => [enrichedRequest, ...prev])
               }
  
               if (ev === 'UPDATE' && newRow) {
@@ -318,7 +328,7 @@ export default function DriverHome() {
                 if (newRow.status !== 'pending') {
                   setRideRequests((prev) => prev.filter((r) => r.request_id !== newRow.request_id))
                 } else {
-                  setRideRequests((prev) => prev.map((r) => (r.request_id === newRow.request_id ? newRow : r)))
+                  setRideRequests((prev) => prev.map((r) => (r.request_id === newRow.request_id ? { ...r, ...newRow } : r)))
                 }
               }
  
@@ -348,23 +358,30 @@ export default function DriverHome() {
               if (ev === 'INSERT' && newRow) {
                 console.log('New trip:', newRow)
                 
-                // Fetch passenger data for the new trip
-                const { data: passengerData } = await supabase
-                  .from('passengers')
-                  .select('passenger_id, latitude, longitude')
-                  .eq('passenger_id', newRow.passenger_id)
-                  .single()
-                
                 const { data: passengerInfo } = await supabase
                   .from('user_info')
                   .select('user_id, full_name, email, phone_number, role, photo_url')
                   .eq('user_id', newRow.passenger_id)
                   .single()
+
+                const { data: paymentInfo } = await supabase
+                  .from('payments')
+                  .select('*')
+                  .eq('trip_id', newRow.trip_id)
+                  .single()
+                
+                // Parse pick_up coordinates
+                const pickUpCoords = newRow.pick_up.split(',').map((c: string) => parseFloat(c.trim()))
                 
                 const enrichedTrip: TripWithPassenger = {
                   ...newRow,
-                  passenger: passengerData || undefined,
-                  passenger_info: passengerInfo || undefined
+                  passenger: {
+                    passenger_id: newRow.passenger_id,
+                    latitude: pickUpCoords[0] || null,
+                    longitude: pickUpCoords[1] || null
+                  },
+                  passenger_info: passengerInfo || undefined,
+                  payment: paymentInfo || undefined
                 }
                 
                 setActiveTrips((prev) => [enrichedTrip, ...prev])
@@ -388,6 +405,58 @@ export default function DriverHome() {
             }
           )
           .subscribe()
+
+        // Realtime subscription for payments
+        paymentChannel = supabase
+          .channel('driver-payments')
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'payments'
+            },
+            async (payload) => {
+              console.log('Realtime payment payload:', payload) // log entire payload
+
+              const tripId = payload.new?.trip_id
+              if (!tripId) {
+                console.warn('No trip_id found in payload')
+                return
+              }
+
+              try {
+                // Fetch the full payment row for this trip
+                const { data: paymentData, error } = await supabase
+                  .from('payments')
+                  .select('*')
+                  .eq('trip_id', tripId)
+                  .single()
+
+                if (error) {
+                  console.error('Error fetching updated payment:', error)
+                  return
+                }
+
+                console.log('Fetched payment data:', paymentData) // log fetched payment
+
+                // Update the activeTrips state
+                setActiveTrips((prev) =>
+                  prev.map((trip) => {
+                    if (trip.trip_id === tripId) {
+                      console.log('Updating trip payment:', trip.trip_id)
+                      return { ...trip, payment: paymentData }
+                    }
+                    return trip
+                  })
+                )
+              } catch (err) {
+                console.error('Error updating payment in realtime:', err)
+              }
+            }
+          )
+          .subscribe()
+
       } catch (err) {
         console.error(err)
       } finally {
@@ -400,14 +469,16 @@ export default function DriverHome() {
     return () => {
       if (channel) channel.unsubscribe()
       if (tripChannel) tripChannel.unsubscribe()
+      if (paymentChannel) paymentChannel.unsubscribe()
     }
   }, [driverId])
  
-  const handleAccept = async (request: RideRequest) => {
+  const handleAccept = async (request: RideRequestWithPassenger) => {
     if (!driverId) return Alert.alert('Not signed in')
  
     try {
-      // Update ride request to assign driver and change status
+      // Just update ride request to assign driver and change status
+      // Don't create trip - wait for passenger to create it
       const { error: updateError } = await supabase
         .from('ride_requests')
         .update({ status: 'accepted', driver_id: driverId })
@@ -415,50 +486,17 @@ export default function DriverHome() {
  
       if (updateError) throw updateError
 
-      // Create a trips record for this accepted ride
-      const { data: newTrip, error: tripError } = await supabase
-        .from('trips')
-        .insert([
-          {
-            driver_id: driverId,
-            passenger_id: request.passenger_id,
-            start_time: new Date().toISOString(),
-            status: 'ongoing',
-            pick_up: `${request.from_y?.toFixed(6)}, ${request.from_x?.toFixed(6)}`,
-            destination: request.destination_name || 'Destination',
-            distance: 0,
-          }
-        ])
-        .select('*')
-        .single()
-
-      if (tripError) throw tripError
-
-      // Add the new trip to active trips
-      if (newTrip) {
-        const enrichedTrip: TripWithPassenger = {
-          ...newTrip,
-          passenger: {
-            passenger_id: request.passenger_id,
-            latitude: request.from_y,
-            longitude: request.from_x,
-          },
-          payment: undefined
-        }
-        setActiveTrips((prev) => [enrichedTrip, ...prev])
-      }
-
       // Remove from ride requests
       setRideRequests((prev) => prev.filter((r) => r.request_id !== request.request_id))
  
-      Alert.alert('Accepted', 'You accepted the ride request.')
+      Alert.alert('Accepted', 'You accepted the ride request. Waiting for passenger to start the trip.')
     } catch (err: any) {
       console.error('Accept error:', err)
       Alert.alert('Error', err.message || String(err))
     }
   }
  
-  const handleDecline = async (request: RideRequest) => {
+  const handleDecline = async (request: RideRequestWithPassenger) => {
     try {
       const { error } = await supabase
         .from('ride_requests')
@@ -476,28 +514,38 @@ export default function DriverHome() {
     }
   }
  
-  const handleConfirmPayment = async (trip: TripWithPassenger) => {
+    const handleConfirmPayment = async (trip: TripWithPassenger) => {
     try {
-      // Fetch payment details to get the amount
-      const { data: payment, error: fetchErr } = await supabase
-        .from('payments')
-        .select('amount')
-        .eq('trip_id', trip.trip_id)
-        .single()
+      // Prevent double confirmation
+      if (!trip.payment || trip.payment.status === 'confirmed') {
+        return Alert.alert('Payment already confirmed', 'This trip’s payment is already confirmed.')
+      }
 
-      if (fetchErr) throw fetchErr
-
-      // Update payment status to confirmed
-      const { error: payErr } = await supabase
+      // Update payment status to confirmed in database
+      const { data: updatedPayment, error: payErr } = await supabase
         .from('payments')
         .update({ status: 'confirmed' })
-        .eq('trip_id', trip.trip_id)
- 
+        .eq('payment_id', trip.payment.payment_id) // Update by payment_id, not passenger_id
+        .select()
+        .single()
+
       if (payErr) throw payErr
- 
-      Alert.alert('Payment confirmed', `Payment of ₱${payment?.amount || 0} has been confirmed. Waiting for passenger to complete the trip.`)
+
+      // Update local activeTrips state
+      setActiveTrips((prev) =>
+        prev.map((t) =>
+          t.trip_id === trip.trip_id
+            ? { ...t, payment: updatedPayment }
+            : t
+        )
+      )
+
+      Alert.alert(
+        'Payment confirmed',
+        `Payment of ₱${updatedPayment.amount.toFixed(2)} has been confirmed.`
+      )
     } catch (err: any) {
-      console.error(err)
+      console.error('Confirm payment error:', err)
       Alert.alert('Error', err.message || String(err))
     }
   }
@@ -513,25 +561,27 @@ export default function DriverHome() {
         longitude: driverLocation.longitude,
         title: 'You',
         description: 'Your location',
-        type: 'driver'
+        type: 'driver',
+        photoUrl: null
       })
     }
 
-    // Add ride request pickup locations
+    // Add ride request pickup locations with passenger photos
     rideRequests.forEach((r) => {
       if (r.from_x && r.from_y) {
         markers.push({ 
           id: r.request_id, 
           latitude: r.from_y, 
           longitude: r.from_x, 
-          title: 'Pickup Request',
+          title: r.passenger_info?.full_name || 'Pickup Request',
           description: r.destination_name || 'Waiting for pickup',
-          type: 'pickup'
+          type: 'pickup',
+          photoUrl: r.passenger_info?.photo_url
         })
       }
     })
 
-    // Add active passenger locations
+    // Add active passenger locations (from pick_up) with photos
     activeTrips.forEach((trip) => {
       if (trip.passenger?.latitude && trip.passenger?.longitude) {
         markers.push({
@@ -540,7 +590,8 @@ export default function DriverHome() {
           longitude: trip.passenger.longitude,
           title: trip.passenger_info?.full_name || 'Active Passenger',
           description: `Going to ${trip.destination}`,
-          type: 'passenger'
+          type: 'passenger',
+          photoUrl: trip.passenger_info?.photo_url
         })
       }
     })
@@ -578,7 +629,16 @@ export default function DriverHome() {
                 title={m.title}
                 description={m.description}
                 pinColor={m.type === 'driver' ? 'blue' : m.type === 'passenger' ? 'green' : 'red'}
-              />
+              >
+                {m.photoUrl && (
+                  <View className="items-center">
+                    <Image 
+                      source={{ uri: m.photoUrl }} 
+                      className="w-10 h-10 rounded-full border-2 border-white"
+                    />
+                  </View>
+                )}
+              </Marker>
             ))}
           </MapView>
         </View>
@@ -601,182 +661,184 @@ export default function DriverHome() {
             <View className="w-12 h-1 bg-gray-300 rounded-full" />
           </Pressable>
  
-            <View className="flex-1">
-              <View className="px-4 py-4 border-b border-gray-100">
-                <View className="flex-row items-center justify-between">
-                  <View>
-                    <Text className="text-sm text-zinc-500 font-semibold">Driver Status</Text>
-                    <Text className="text-green-700 text-lg font-bold mt-1">{driver?.is_online ? 'Online' : 'Offline'}</Text>
-                  </View>
-                  <AnimatedSwitch
-                    value={driver?.is_online || false}
-                    onToggle={async () => {
-                      try {
-                        const { error } = await supabase
-                          .from('drivers')
-                          .update({ is_online: !driver?.is_online })
-                          .eq('driver_id', driverId)
-                        if (error) throw error
-                        setDriver((d: any) => ({ ...d, is_online: !d?.is_online }))
-                      } catch (err) {
-                        console.error(err)
-                      }
-                    }}
-                  />
+          <View className="flex-1">
+            <View className="px-4 py-4 border-b border-gray-100">
+              <View className="flex-row items-center justify-between">
+                <View>
+                  <Text className="text-sm text-zinc-500 font-semibold">Driver Status</Text>
+                  <Text className="text-green-700 text-lg font-bold mt-1">{driver?.is_online ? 'Online' : 'Offline'}</Text>
                 </View>
-              </View>
- 
-              <View className="flex-row border-b border-gray-100">
-                <Pressable
-                  onPress={() => setActiveTab('requests')}
-                  className="flex-1 py-4 items-center"
-                  style={{
-                    backgroundColor: activeTab === 'requests' ? '#C4B5D8' : 'transparent'
+                <AnimatedSwitch
+                  value={driver?.is_online || false}
+                  onToggle={async () => {
+                    try {
+                      const { error } = await supabase
+                        .from('drivers')
+                        .update({ is_online: !driver?.is_online })
+                        .eq('driver_id', driverId)
+                      if (error) throw error
+                      setDriver((d: any) => ({ ...d, is_online: !d?.is_online }))
+                    } catch (err) {
+                      console.error(err)
+                    }
                   }}
-                >
-                  <Text className={`font-semibold ${activeTab === 'requests' ? 'text-white' : 'text-gray-500'}`}>
-                    Ride Requests ({rideRequests.length})
-                  </Text>
-                </Pressable>
- 
-                <Pressable
-                  onPress={() => setActiveTab('passengers')}
-                  className="flex-1 py-4 items-center"
-                  style={{
-                    backgroundColor: activeTab === 'passengers' ? '#C4B5D8' : 'transparent'
-                  }}
-                >
-                  <Text className={`font-semibold ${activeTab === 'passengers' ? 'text-white' : 'text-gray-500'}`}>
-                    Active Trips ({activeTrips.length})
-                  </Text>
-                </Pressable>
+                />
               </View>
+            </View>
  
-              <ScrollView 
-                className="flex-1 px-4 py-4" 
-                showsVerticalScrollIndicator={true}
-                contentContainerStyle={{ paddingBottom: 100 }}
+            <View className="flex-row border-b border-gray-100">
+              <Pressable
+                onPress={() => setActiveTab('requests')}
+                className="flex-1 py-4 items-center"
+                style={{
+                  backgroundColor: activeTab === 'requests' ? '#C4B5D8' : 'transparent'
+                }}
               >
-                {activeTab === 'requests' && (
-                  <View>
-                    {rideRequests.length === 0 ? (
-                      <View className="bg-white rounded-2xl p-8">
-                        <Text className="text-zinc-400 text-center">No ride requests available</Text>
-                      </View>
-                    ) : (
-                      rideRequests.map((r) => (
-                        <View key={r.request_id} className="bg-white border border-orange-200 rounded-xl p-4 mb-3">
-                          <View className="flex-row items-start">
-                            <Image source={{ uri: 'https://placehold.co/50x50' }} className="w-12 h-12 rounded-full" />
-                            <View className="flex-1 ml-3">
-                              <Text className="text-black font-semibold text-sm">New Ride Request</Text>
-                              <Text className="text-zinc-500 text-xs mt-1">
-                                📍 Pickup: {r.from_y.toFixed(4)}, {r.from_x.toFixed(4)}
-                              </Text>
-                              <Text className="text-zinc-500 text-xs">
-                                🎯 Drop Off: {r.destination_name || (r.to_x && r.to_y ? `${r.to_y.toFixed(4)}, ${r.to_x.toFixed(4)}` : 'N/A')}
-                              </Text>
-                              <Text className="text-zinc-400 text-xs mt-1">
-                                {new Date(r.created_at).toLocaleTimeString()}
-                              </Text>
-                            </View>
-                          </View>
-                          <View className="flex-row mt-3 gap-2">
-                            <Pressable
-                              onPress={() => handleDecline(r)}
-                              className="flex-1 bg-red-100 border border-red-300 rounded-lg py-2"
-                            >
-                              <Text className="text-red-600 text-center font-semibold text-xs">❌ Decline</Text>
-                            </Pressable>
-                            <Pressable
-                              onPress={() => handleAccept(r)}
-                              className="flex-1 bg-green-500 rounded-lg py-2"
-                            >
-                              <Text className="text-white text-center font-semibold text-xs">✓ Accept</Text>
-                            </Pressable>
+                <Text className={`font-semibold ${activeTab === 'requests' ? 'text-white' : 'text-gray-500'}`}>
+                  Ride Requests ({rideRequests.length})
+                </Text>
+              </Pressable>
+ 
+              <Pressable
+                onPress={() => setActiveTab('passengers')}
+                className="flex-1 py-4 items-center"
+                style={{
+                  backgroundColor: activeTab === 'passengers' ? '#C4B5D8' : 'transparent'
+                }}
+              >
+                <Text className={`font-semibold ${activeTab === 'passengers' ? 'text-white' : 'text-gray-500'}`}>
+                  Active Trips ({activeTrips.length})
+                </Text>
+              </Pressable>
+            </View>
+ 
+            <ScrollView 
+              className="flex-1 px-4 py-4" 
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ paddingBottom: 100 }}
+            >
+              {activeTab === 'requests' && (
+                <View>
+                  {rideRequests.length === 0 ? (
+                    <View className="bg-white rounded-2xl p-8">
+                      <Text className="text-zinc-400 text-center">No ride requests available</Text>
+                    </View>
+                  ) : (
+                    rideRequests.map((r) => (
+                      <View key={r.request_id} className="bg-white border border-orange-200 rounded-xl p-4 mb-3">
+                        <View className="flex-row items-start">
+                          <Image 
+                            source={{ uri: r.passenger_info?.photo_url || 'https://placehold.co/50x50' }} 
+                            className="w-12 h-12 rounded-full" 
+                          />
+                          <View className="flex-1 ml-3">
+                            <Text className="text-black font-semibold text-sm">
+                              {r.passenger_info?.full_name || 'Passenger'}
+                            </Text>
+                            <Text className="text-zinc-500 text-xs mt-1">
+                              📍 Pickup: {r.from_y.toFixed(4)}, {r.from_x.toFixed(4)}
+                            </Text>
+                            <Text className="text-zinc-500 text-xs">
+                              🎯 Drop Off: {r.destination_name || (r.to_x && r.to_y ? `${r.to_y.toFixed(4)}, ${r.to_x.toFixed(4)}` : 'N/A')}
+                            </Text>
+                            <Text className="text-zinc-400 text-xs mt-1">
+                              {new Date(r.created_at).toLocaleTimeString()}
+                            </Text>
                           </View>
                         </View>
-                      ))
-                    )}
-                  </View>
-                )}
- 
-                {activeTab === 'passengers' && (
-                  <View>
-                    {activeTrips.length === 0 ? (
-                      <View className="bg-white rounded-2xl p-8">
-                        <Text className="text-zinc-400 text-center">No active trips</Text>
+                        <View className="flex-row mt-3 gap-2">
+                          <Pressable
+                            onPress={() => handleDecline(r)}
+                            className="flex-1 bg-red-100 border border-red-300 rounded-lg py-2"
+                          >
+                            <Text className="text-red-600 text-center font-semibold text-xs">❌ Decline</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => handleAccept(r)}
+                            className="flex-1 bg-green-500 rounded-lg py-2"
+                          >
+                            <Text className="text-white text-center font-semibold text-xs">✓ Accept</Text>
+                          </Pressable>
+                        </View>
                       </View>
-                    ) : (
-                      activeTrips
-                        .sort((a, b) => {
-                          // Sort by payment status - unpaid first, then paid
-                          const aConfirmed = a.payment?.status === 'confirmed'
-                          const bConfirmed = b.payment?.status === 'confirmed'
-                          if (aConfirmed === bConfirmed) return 0
-                          return aConfirmed ? 1 : -1
-                        })
-                        .map((t) => {
-                          const isPaymentConfirmed = t.payment?.status === 'confirmed'
-                          return (
-                            <View key={t.trip_id} className={`bg-white border ${isPaymentConfirmed ? 'border-gray-300 opacity-70' : 'border-green-200'} rounded-xl p-4 mb-3`}>
-                              <View className="flex-row items-start">
-                                <Image 
-                                  source={{ uri: t.passenger_info?.photo_url || 'https://placehold.co/50x50' }} 
-                                  className="w-12 h-12 rounded-full" 
-                                />
-                                <View className="flex-1 ml-3">
-                                  <Text className="text-black font-semibold text-sm">
-                                    {t.passenger_info?.full_name || 'Passenger'}
-                                  </Text>
-                                  <Text className="text-zinc-400 text-xs">
-                                    {t.passenger_info?.phone_number || 'No phone'}
-                                  </Text>
-                                  <Text className="text-zinc-500 text-xs mt-2">
-                                    📍 Pickup: {t.pick_up}
-                                  </Text>
-                                  <Text className="text-zinc-500 text-xs">
-                                    🎯 Destination: {t.destination}
-                                  </Text>
-                                  <Text className="text-zinc-500 text-xs">
-                                    📏 Distance: {t.distance.toFixed(2)} km
-                                  </Text>
-                                  {t.passenger?.latitude && t.passenger?.longitude && (
-                                    <Text className="text-blue-500 text-xs mt-1">
-                                      📍 Current: {t.passenger.latitude.toFixed(4)}, {t.passenger.longitude.toFixed(4)}
-                                    </Text>
-                                  )}
-                                  <Text className="text-zinc-400 text-xs mt-1">
-                                    Status: {t.status} • Started: {new Date(t.start_time).toLocaleTimeString()}
-                                  </Text>
-                                  {isPaymentConfirmed && (
-                                    <Text className="text-green-600 text-xs mt-1 font-semibold">
-                                      ✓ Payment Confirmed
-                                    </Text>
-                                  )}
-                                </View>
-                              </View>
-                              <Pressable
-                                onPress={() => !isPaymentConfirmed && handleConfirmPayment(t)}
-                                disabled={isPaymentConfirmed}
-                                className={`w-full rounded-lg py-2 mt-3 ${isPaymentConfirmed ? 'bg-gray-300' : 'bg-green-500'}`}
-                              >
-                                <Text className={`text-center font-semibold text-xs ${isPaymentConfirmed ? 'text-gray-500' : 'text-white'}`}>
-                                  {isPaymentConfirmed 
-                                    ? '✓ Payment Confirmed' 
-                                    : `✓ Confirm Payment ${t.payment?.amount ? `(₱${t.payment.amount.toFixed(2)})` : ''}`
-                                  }
+                    ))
+                  )}
+                </View>
+              )}
+ 
+              {activeTab === 'passengers' && (
+                <View>
+                  {activeTrips.length === 0 ? (
+                    <View className="bg-white rounded-2xl p-8">
+                      <Text className="text-zinc-400 text-center">No active trips</Text>
+                    </View>
+                  ) : (
+                    activeTrips
+                      .sort((a, b) => {
+                        // Sort by payment status - unpaid first, then paid
+                        const aConfirmed = a.payment?.status === 'confirmed'
+                        const bConfirmed = b.payment?.status === 'confirmed'
+                        if (aConfirmed === bConfirmed) return 0
+                        return aConfirmed ? 1 : -1
+                      })
+                      .map((t) => {
+                        const isPaymentConfirmed = t.payment?.status === 'confirmed'
+                        return (
+                          <View key={t.trip_id} className={`bg-white border ${isPaymentConfirmed ? 'border-gray-300 opacity-70' : 'border-green-200'} rounded-xl p-4 mb-3`}>
+                            <View className="flex-row items-start">
+                              <Image 
+                                source={{ uri: t.passenger_info?.photo_url || 'https://placehold.co/50x50' }} 
+                                className="w-12 h-12 rounded-full" 
+                              />
+                              <View className="flex-1 ml-3">
+                                <Text className="text-black font-semibold text-sm">
+                                  {t.passenger_info?.full_name || 'Passenger'}
                                 </Text>
-                              </Pressable>
+                                <Text className="text-zinc-500 text-xs mt-2">
+                                  📍 Pickup: {t.pick_up}
+                                </Text>
+                                <Text className="text-zinc-500 text-xs">
+                                  🎯 Destination: {t.destination}
+                                </Text>
+                                <Text className="text-zinc-500 text-xs">
+                                  📏 Distance: {t.distance.toFixed(2)} km
+                                </Text>
+                                {t.payment?.payment_method && (
+                                  <Text className="text-zinc-500 text-xs">
+                                    💳 Payment: {t.payment.payment_method}
+                                  </Text>
+                                )}
+                                <Text className="text-zinc-400 text-xs mt-1">
+                                  Status: {t.status} • Started: {new Date(t.start_time).toLocaleTimeString()}
+                                </Text>
+                                {isPaymentConfirmed && (
+                                  <Text className="text-green-600 text-xs mt-1 font-semibold">
+                                    ✓ Payment Confirmed
+                                  </Text>
+                                )}
+                              </View>
                             </View>
-                          )
-                        })
-                    )}
-                  </View>
-                )}
-              </ScrollView>
-            </View>
+                            <Pressable
+                              onPress={() => !isPaymentConfirmed && handleConfirmPayment(t)}
+                              disabled={isPaymentConfirmed}
+                              className={`w-full rounded-lg py-2 mt-3 ${isPaymentConfirmed ? 'bg-gray-300' : 'bg-green-500'}`}
+                            >
+                              <Text className={`text-center font-semibold text-xs ${isPaymentConfirmed ? 'text-gray-500' : 'text-white'}`}>
+                                {isPaymentConfirmed 
+                                  ? '✓ Payment Confirmed' 
+                                  : `✓ Confirm Payment ${t.payment?.amount ? `(₱${t.payment.amount.toFixed(2)})` : ''}`
+                                }
+                              </Text>
+                            </Pressable>
+                          </View>
+                        )
+                      })
+                  )}
+                </View>
+              )}
+            </ScrollView>
           </View>
+        </View>
       </View>
     </GestureHandlerRootView>
   )

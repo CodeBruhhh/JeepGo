@@ -408,19 +408,52 @@ export default function DriverHome() {
  
     try {
       // Update ride request to assign driver and change status
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('ride_requests')
         .update({ status: 'accepted', driver_id: driverId })
         .eq('request_id', request.request_id)
  
-      if (error) throw error
+      if (updateError) throw updateError
 
-      // Remove from local state
+      // Create a trips record for this accepted ride
+      const { data: newTrip, error: tripError } = await supabase
+        .from('trips')
+        .insert([
+          {
+            driver_id: driverId,
+            passenger_id: request.passenger_id,
+            start_time: new Date().toISOString(),
+            status: 'ongoing',
+            pick_up: `${request.from_y?.toFixed(6)}, ${request.from_x?.toFixed(6)}`,
+            destination: request.destination_name || 'Destination',
+            distance: 0,
+          }
+        ])
+        .select('*')
+        .single()
+
+      if (tripError) throw tripError
+
+      // Add the new trip to active trips
+      if (newTrip) {
+        const enrichedTrip: TripWithPassenger = {
+          ...newTrip,
+          passenger: {
+            passenger_id: request.passenger_id,
+            latitude: request.from_y,
+            longitude: request.from_x,
+          },
+          payment: undefined
+        }
+        setActiveTrips((prev) => [enrichedTrip, ...prev])
+      }
+
+      // Remove from ride requests
       setRideRequests((prev) => prev.filter((r) => r.request_id !== request.request_id))
  
       Alert.alert('Accepted', 'You accepted the ride request.')
     } catch (err: any) {
-      console.error(err)
+      console.error('Accept error:', err)
       Alert.alert('Error', err.message || String(err))
     }
   }

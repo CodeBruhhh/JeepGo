@@ -429,7 +429,7 @@ const MapScreen = () => {
       const { data, error } = await supabase
         .from('drivers')
         .select('driver_id, latitude, longitude, jeep_code')
-        .eq('status', 'available');
+        .eq('is_online', true);
 
       if (error) {
         console.error('Error fetching drivers:', error);

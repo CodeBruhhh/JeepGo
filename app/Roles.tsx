@@ -74,32 +74,50 @@ export default function RolesScreen() {
           
        
 
-      <Text className="text-5xl font-bold mb-5 text-black">Welcome to JeepGo!</Text>
+      <Text className="text-4xl font-bold mb-5 text-black">Welcome to JeepGo!</Text>
       <Text className="text-3xl font-bold mb-8 text-white">You are a...?</Text>
 
       <TouchableOpacity
-        className="justify-center items-center bg-highlight rounded-2xl mb-5 p-5"
-        style={{ height: 250, width: "95%" }}
+        className="justify-center items-center bg-white rounded-2xl mb-10 p-5"
+        style={{ 
+          height: 250, 
+          width: "90%", 
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 15 },
+          shadowOpacity: 0.5,
+          shadowRadius: 20,
+          elevation: 20, }}
         onPress={() => router.push("/login_passenger?role=passenger")}
       >
+        <View className="w-[150] h-[150] rounded-full bg-highlight items-center justify-center">
         <Image
           source={require("../assets/images/Run.png")}
-          style={{ width: 100, height: 100, marginBottom: 15 }}
+          style={{ width: 100, height: 100, tintColor: "#ffffff"}}
         />
-        <Text className="text-center text-white text-3xl">Passenger</Text>
+        </View>
+        <Text className="text-center text-white text-3xl text-highlight font-bold mt-2">Passenger</Text>
       </TouchableOpacity>
 
       {/* DRIVER BUTTON */}
       <TouchableOpacity
-        className="justify-center items-center bg-highlight rounded-2xl"
-        style={{ height: 250, width: "95%" }}
+        className=" justify-center items-center bg-white rounded-2xl"
+        style={{ 
+          height: 250, 
+          width: "90%", 
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 15 },
+          shadowOpacity: 0.5,
+          shadowRadius: 20,
+          elevation: 20, }}
         onPress={() => router.push("/login_driver?role=driver")}
       >
+        <View className="w-[150] h-[150] bg-[#D4C4A8] items-center justify-center rounded-full">
         <Image
           source={require("../assets/images/Steering.png")}
-          style={{ width: 100, height: 100, marginBottom: 15 }}
+          style={{ width: 100, height: 100, tintColor: "#ffffff"}}
         />
-        <Text className="text-center text-white text-3xl">Jeepney Driver</Text>
+        </View>
+        <Text className="text-center text-[#D4C4A8] text-3xl font-bold mt-2">Jeepney Driver</Text>
       </TouchableOpacity>
 
     </View>

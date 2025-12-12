@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { deleteItemAsync, getItemAsync, setItemAsync } from 'expo-secure-store';
+import Constants from 'expo-constants';
 
 const ExpoSecureStoreAdapter = {
   getItem: (key: string) => {
@@ -17,8 +18,10 @@ const ExpoSecureStoreAdapter = {
   },
 };
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const extra = Constants.expoConfig?.extra ?? {};
+
+const supabaseUrl = (extra as { supabaseUrl?: string }).supabaseUrl ?? '';
+const supabaseAnonKey = (extra as { supabaseAnonKey?: string }).supabaseAnonKey ?? '';
 
 // Validate that required environment variables are set
 if (!supabaseUrl || !supabaseAnonKey) {

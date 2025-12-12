@@ -1,5 +1,6 @@
 import { supabase } from '@/services/supabase';
 import { GoogleSignin, GoogleSigninButton, statusCodes } from '@react-native-google-signin/google-signin';
+import Constants from 'expo-constants';
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from 'react';
 import { Alert, Image, Modal, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -135,9 +136,11 @@ export default function LogInScreen() {
 
 
   useEffect(() => {
+    const webClientId = Constants.expoConfig?.extra?.googleAuthWebClientId ?? '';
+
     GoogleSignin.configure({
       scopes: ['email', 'profile'],
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_AUTH_WEB_CLIENT_ID,
+      webClientId,
       offlineAccess: true,
     });
   }, []);
@@ -232,7 +235,7 @@ export default function LogInScreen() {
         // If driver, also insert into driver table
         if (role === "driver") {
           const { error: driverError } = await supabase
-            .from('driver')
+            .from('drivers')
             .insert({
               driver_id: user.id
             });

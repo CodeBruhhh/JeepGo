@@ -15,7 +15,6 @@ interface UserInfo {
 interface DriverInfo {
   rating: number | null;
   license_no: string;
-  status: string;
   jeep_code: string;
   is_online: boolean;
   qr_photo_url: string | null;
@@ -76,7 +75,7 @@ export default function account() {
       // Fetch driver info
       const { data: driverData } = await supabase
         .from("drivers")
-        .select("rating, license_no, status, jeep_code, is_online, qr_photo_url")
+        .select("rating, license_no, jeep_code, is_online, qr_photo_url")
         .eq("driver_id", auth.user.id)
         .single();
 
@@ -85,7 +84,10 @@ export default function account() {
         setEditedLicenseNo(driverData.license_no);
         setEditedJeepCode(driverData.jeep_code);
         setEditedQRUrl(driverData.qr_photo_url);
-      }
+        console.log("driver data:", driverData, driverData.license_no, driverData.jeep_code, driverData.qr_photo_url);
+      }else{
+          console.log("no driver data", auth.user.id);
+        }
 
       // Fetch total trips count
       const { count } = await supabase

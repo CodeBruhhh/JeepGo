@@ -7,6 +7,7 @@ import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Constants from 'expo-constants';
 
 class Cache {
   private cache = new Map<string, { data: any; timestamp: number }>();
@@ -88,7 +89,11 @@ const ride = () => {
   // Saved places
   const [places, setPlaces] = useState<SavedPlace[]>([]);
   
-  const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const API_KEY =
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+  (Constants.expoConfig?.extra as { googleMapsApiKey?: string })?.googleMapsApiKey ||
+  '';
+
 
   // Initialize session token and fetch popular places
   useEffect(() => {

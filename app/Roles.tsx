@@ -95,7 +95,7 @@ export default function RolesScreen() {
           style={{ width: 100, height: 100, tintColor: "#ffffff"}}
         />
         </View>
-        <Text className="text-center text-white text-3xl text-highlight font-bold mt-2">Passenger</Text>
+        <Text className="text-center text-3xl text-highlight font-bold mt-2">Passenger</Text>
       </TouchableOpacity>
 
       {/* DRIVER BUTTON */}
